@@ -18,9 +18,9 @@
     "seed": "node --experimental-strip-types scripts/seed.ts"
   },
   "dependencies": {
+    "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
-    "@react-navigation/bottom-tabs": "^6.6.1",
     "expo": "~52.0.0",
     "expo-asset": "~11.0.1",
     "expo-av": "~15.0.1",
@@ -52,6 +52,7 @@
     "@types/three": "^0.166.0",
     "@typescript-eslint/eslint-plugin": "^8.8.0",
     "@typescript-eslint/parser": "^8.8.0",
+    "babel-plugin-module-resolver": "^5.0.3",
     "eslint": "^8.57.0",
     "eslint-plugin-react": "^7.37.1",
     "eslint-plugin-react-hooks": "^4.6.2",
