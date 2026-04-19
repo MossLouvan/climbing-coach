@@ -62,7 +62,6 @@ function classifyFrame(
   prevContacts: ReadonlyArray<LimbContact>,
 ): PhaseKind {
   const contactCount = contacts.length;
-  const prevContactCount = prevContacts.length;
 
   // Dyno: both feet released OR <2 limbs in contact briefly.
   if (contactCount <= 1) return 'dyno';

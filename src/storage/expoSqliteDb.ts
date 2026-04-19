@@ -1,4 +1,4 @@
-import type { Database, DbRow, SqlParam } from './db';
+import type { Database, SqlParam } from './db';
 
 /**
  * expo-sqlite adapter. Kept in its own file so the rest of the
@@ -24,14 +24,14 @@ export async function openExpoSqliteDatabase(
     async run(sql, params = []) {
       await runOnHandle(handle, sql, params);
     },
-    async all<R extends DbRow = DbRow>(sql: string, params: ReadonlyArray<SqlParam> = []) {
-      return (await allOnHandle<R>(handle, sql, params)) as R[];
+    async all<R = unknown>(sql: string, params: ReadonlyArray<SqlParam> = []): Promise<R[]> {
+      return allOnHandle<R>(handle, sql, params);
     },
-    async get<R extends DbRow = DbRow>(sql: string, params: ReadonlyArray<SqlParam> = []) {
+    async get<R = unknown>(sql: string, params: ReadonlyArray<SqlParam> = []): Promise<R | null> {
       const rows = await allOnHandle<R>(handle, sql, params);
       return rows[0] ?? null;
     },
-    async transaction<T>(fn) {
+    async transaction<T>(fn: (tx: Database) => Promise<T>): Promise<T> {
       await runOnHandle(handle, 'BEGIN', []);
       try {
         const out = await fn(db);

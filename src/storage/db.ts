@@ -14,15 +14,13 @@ import { SCHEMA_SQL, SCHEMA_VERSION } from './schema';
  */
 export type SqlParam = string | number | boolean | null;
 
-export interface DbRow {
-  readonly [key: string]: SqlParam;
-}
+export type DbRow = Record<string, SqlParam>;
 
 export interface Database {
   exec(sql: string): Promise<void>;
   run(sql: string, params?: ReadonlyArray<SqlParam>): Promise<void>;
-  all<R extends DbRow = DbRow>(sql: string, params?: ReadonlyArray<SqlParam>): Promise<R[]>;
-  get<R extends DbRow = DbRow>(sql: string, params?: ReadonlyArray<SqlParam>): Promise<R | null>;
+  all<R = DbRow>(sql: string, params?: ReadonlyArray<SqlParam>): Promise<R[]>;
+  get<R = DbRow>(sql: string, params?: ReadonlyArray<SqlParam>): Promise<R | null>;
   transaction<T>(fn: (db: Database) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }

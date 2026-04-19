@@ -28,14 +28,14 @@ export function inMemoryDb(): Database {
     async run(sql, params = []) {
       parseAndRun(tables, sql, params);
     },
-    async all<R extends DbRow = DbRow>(sql: string, params: ReadonlyArray<SqlParam> = []) {
+    async all<R = unknown>(sql: string, params: ReadonlyArray<SqlParam> = []): Promise<R[]> {
       return parseAndRun(tables, sql, params) as R[];
     },
-    async get<R extends DbRow = DbRow>(sql: string, params: ReadonlyArray<SqlParam> = []) {
+    async get<R = unknown>(sql: string, params: ReadonlyArray<SqlParam> = []): Promise<R | null> {
       const rows = parseAndRun(tables, sql, params) as R[];
       return rows[0] ?? null;
     },
-    async transaction<T>(fn) {
+    async transaction<T>(fn: (tx: Database) => Promise<T>): Promise<T> {
       // Snapshot-copy for rollback.
       const snapshot = new Map<string, DbRow[]>();
       for (const [k, v] of tables.entries()) snapshot.set(k, v.map((r) => ({ ...r })));

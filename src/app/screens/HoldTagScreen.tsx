@@ -11,7 +11,6 @@ import {
   type HoldRole,
   type HoldType,
   type NormalizedPoint2D,
-  type Route,
   type RouteSequenceStep,
 } from '@domain/models';
 

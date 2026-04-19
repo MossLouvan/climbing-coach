@@ -3,7 +3,6 @@ import {
   type Hold,
   type HoldId,
   type Route,
-  type RouteId,
   type RouteSequenceStep,
   type UserId,
   type UserProfile,

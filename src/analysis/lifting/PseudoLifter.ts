@@ -109,7 +109,7 @@ export class PseudoLifter {
     // Hip/shoulder midpoints are our z=0 reference.
     const midHipX = (k[JOINT_INDEX.left_hip].x + k[JOINT_INDEX.right_hip].x) / 2;
     const midHipY = (k[JOINT_INDEX.left_hip].y + k[JOINT_INDEX.right_hip].y) / 2;
-    const joints: Joint3D[] = pose.keypoints.map((kp, i) => ({
+    const joints: Joint3D[] = pose.keypoints.map((kp) => ({
       x: ((kp.x - 0.5) * widthPx) / ppm - midHipX,
       y: ((0.5 - kp.y) * heightPx) / ppm - midHipY,
       z: 0,
