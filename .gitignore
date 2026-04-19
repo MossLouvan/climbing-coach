@@ -1,0 +1,56 @@
+# OS
+.DS_Store
+*.log
+*.pid
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm/
+.pnpm-store/
+
+# Expo
+.expo/
+.expo-shared/
+dist/
+web-build/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Native
+/ios/Pods/
+/ios/build/
+/ios/DerivedData/
+/android/app/build/
+/android/.gradle/
+/android/build/
+/android/local.properties
+
+# Testing
+coverage/
+.nyc_output/
+
+# Editors
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# TypeScript
+*.tsbuildinfo
+
+# Memory (per-machine agent memory, not code)
+memory/

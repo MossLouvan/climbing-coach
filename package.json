@@ -1,0 +1,86 @@
+{
+  "name": "climbing-coach",
+  "version": "0.1.0",
+  "private": true,
+  "description": "iPhone climbing technique coach — local-first MVP (Expo).",
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "ios": "expo start --ios",
+    "android": "expo start --android",
+    "web": "expo start --web",
+    "prebuild": "expo prebuild --platform ios",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" \"tests/**/*.{ts,tsx}\"",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:ci": "jest --ci --coverage",
+    "seed": "node --experimental-strip-types scripts/seed.ts"
+  },
+  "dependencies": {
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.11.0",
+    "@react-navigation/bottom-tabs": "^6.6.1",
+    "expo": "~52.0.0",
+    "expo-asset": "~11.0.1",
+    "expo-av": "~15.0.1",
+    "expo-camera": "~16.0.6",
+    "expo-constants": "~17.0.3",
+    "expo-file-system": "~18.0.3",
+    "expo-gl": "~15.0.2",
+    "expo-haptics": "~14.0.0",
+    "expo-image-picker": "~16.0.2",
+    "expo-media-library": "~17.0.2",
+    "expo-sqlite": "~15.0.3",
+    "expo-status-bar": "~2.0.0",
+    "expo-three": "^8.0.0",
+    "expo-video-thumbnails": "~9.0.2",
+    "react": "18.3.1",
+    "react-native": "0.76.3",
+    "react-native-gesture-handler": "~2.20.2",
+    "react-native-reanimated": "~3.16.1",
+    "react-native-safe-area-context": "~4.12.0",
+    "react-native-screens": "~4.1.0",
+    "react-native-svg": "~15.8.0",
+    "three": "^0.160.0",
+    "zustand": "^4.5.5"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/jest": "^29.5.13",
+    "@types/react": "~18.3.12",
+    "@types/three": "^0.160.0",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.37.1",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "jest": "^29.7.0",
+    "jest-expo": "~52.0.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.3.3"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "testMatch": [
+      "<rootDir>/tests/**/*.test.ts",
+      "<rootDir>/tests/**/*.test.tsx"
+    ],
+    "moduleFileExtensions": ["ts", "tsx", "js", "jsx", "json"],
+    "collectCoverageFrom": [
+      "src/domain/**/*.ts",
+      "src/analysis/**/*.ts",
+      "src/storage/**/*.ts",
+      "!**/index.ts"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 60,
+        "functions": 70,
+        "lines": 70,
+        "statements": 70
+      }
+    }
+  }
+}
