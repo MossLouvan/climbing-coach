@@ -98,6 +98,10 @@ export function HoldTagScreen(): React.ReactElement {
       const id = makeId<'Hold'>(`hld_${Date.now().toString(36)}`);
       const radiusGuess = 0.04;
       const suggestion = classifyHoldByRadius(radiusGuess);
+      // Prefer the video's real fps when known; fall back to 30 for
+      // frame-index math during tagging (the tracker re-anchors against
+      // the actual analysis fps later).
+      const fps = draft.video.fps && draft.video.fps > 0 ? draft.video.fps : 30;
       const newHold: Hold = {
         id,
         routeId: draft.route.id,
@@ -107,6 +111,7 @@ export function HoldTagScreen(): React.ReactElement {
         suggestedType: suggestion.type,
         suggestedTypeConfidence: suggestion.confidence,
         capturedAtMs: positionMs,
+        anchorFrame: Math.round((positionMs * fps) / 1000),
         role: holds.length === 0 ? 'start' : 'intermediate',
       };
       const nextHolds = [...holds, newHold];

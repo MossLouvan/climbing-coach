@@ -10,6 +10,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 
+import { projectHold } from '@analysis/holds/tracker';
 import { PoseOverlay } from '@viz/overlay2d/PoseOverlay';
 import { Skeleton3D } from '@viz/skeleton3d/Skeleton3D';
 import {
@@ -91,11 +92,32 @@ export function SessionDetailScreen(): React.ReactElement {
   const holdsVisibleNow: ReadonlyArray<Hold> = useMemo(() => {
     const allHolds = (session as unknown as { route?: { holds: Hold[] } } | null)?.route?.holds ?? [];
     if (allHolds.length === 0) return [];
-    const window = 1500; // ms — camera usually pans slowly
-    return allHolds.filter((h) => {
-      if (h.capturedAtMs === undefined) return true; // legacy holds: always show
-      return Math.abs(h.capturedAtMs - positionMs) <= window;
-    });
+    const cameraTrack = session?.cameraTrack;
+    const fps = session?.poseTrack?.fps ?? session?.video.fps ?? 30;
+    // No camera track or tracker deemed the motion unreliable: fall
+    // back to the original time-window filter so holds don't flood the
+    // frame once the camera pans.
+    if (!cameraTrack || !cameraTrack.confident) {
+      const window = 1500; // ms
+      return allHolds.filter((h) => {
+        if (h.capturedAtMs === undefined) return true;
+        return Math.abs(h.capturedAtMs - positionMs) <= window;
+      });
+    }
+
+    // Otherwise, re-project each hold onto the current frame. Holds
+    // whose projection is off-screen / implausible are dropped.
+    const currentFrame = Math.round((positionMs / 1000) * fps);
+    const out: Hold[] = [];
+    for (const h of allHolds) {
+      const projected = projectHold(h, currentFrame, cameraTrack);
+      if (!projected) continue;
+      // Rebuild the hold with the projected position so the 2D overlay
+      // renders it at the live location. The hold in storage is not
+      // mutated.
+      out.push({ ...h, position: projected });
+    }
+    return out;
   }, [session, positionMs]);
 
   if (!session) {
