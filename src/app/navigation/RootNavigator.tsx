@@ -9,6 +9,7 @@ import { UploadScreen } from '../screens/UploadScreen';
 import { HoldTagScreen } from '../screens/HoldTagScreen';
 import { AnalysisScreen } from '../screens/AnalysisScreen';
 import { SessionDetailScreen } from '../screens/SessionDetailScreen';
+import { CompareScreen } from '../screens/CompareScreen';
 import { colors } from '../theme/tokens';
 
 import type { SessionId } from '@domain/models';
@@ -18,6 +19,7 @@ export type RootStackParamList = {
   HoldTag: undefined;
   Analysis: { sessionId: SessionId } | undefined;
   SessionDetail: { sessionId: SessionId };
+  Compare: { a: SessionId; b?: SessionId };
 };
 
 export type TabParamList = {
@@ -64,6 +66,11 @@ export function RootNavigator(): React.ReactElement {
           name="SessionDetail"
           component={SessionDetailScreen}
           options={{ title: 'Session' }}
+        />
+        <Stack.Screen
+          name="Compare"
+          component={CompareScreen}
+          options={{ title: 'Compare' }}
         />
       </Stack.Navigator>
     </NavigationContainer>
