@@ -1,4 +1,5 @@
 import type {
+  AnalyticsTrack,
   CameraTrack,
   Hold,
   MovementPhase,
@@ -162,7 +163,7 @@ export class SessionRepository {
           session.note ?? null,
           session.phases ? JSON.stringify(session.phases) : null,
           serializePoseTrackBlob(session.poseTrack, session.cameraTrack),
-          session.report ? JSON.stringify(session.report) : null,
+          serializeReportEnvelope(session.report, session.analytics),
           session.createdAtMs,
           Date.now(),
         ],
@@ -184,6 +185,7 @@ export class SessionRepository {
       readonly poseTrack: PoseTrack;
       readonly report: TechniqueReport;
       readonly cameraTrack?: CameraTrack;
+      readonly analytics?: AnalyticsTrack;
     },
   ): Promise<void> {
     await this.db.run(
@@ -191,7 +193,7 @@ export class SessionRepository {
       [
         JSON.stringify(args.phases),
         serializePoseTrackBlob(args.poseTrack, args.cameraTrack),
-        JSON.stringify(args.report),
+        serializeReportEnvelope(args.report, args.analytics),
         'analyzed' satisfies SessionStatus,
         Date.now(),
         id,
@@ -223,6 +225,7 @@ export class SessionRepository {
     const { poseTrack, cameraTrack } = deserializePoseTrackBlob(
       row.pose_track_json as string | null | undefined,
     );
+    const envelope = deserializeReportEnvelope(row.report_json);
     return {
       id: row.id as SessionId,
       userId: row.user_id as UserId,
@@ -234,7 +237,8 @@ export class SessionRepository {
       phases: row.phases_json ? JSON.parse(String(row.phases_json)) : undefined,
       poseTrack,
       cameraTrack,
-      report: row.report_json ? JSON.parse(String(row.report_json)) : undefined,
+      ...(envelope.report !== undefined ? { report: envelope.report } : {}),
+      ...(envelope.analytics !== undefined ? { analytics: envelope.analytics } : {}),
       createdAtMs: Number(row.created_at_ms),
     };
   }
@@ -262,7 +266,6 @@ function deserializePoseTrackBlob(raw: string | null | undefined): {
   const parsed = JSON.parse(String(raw)) as Record<string, unknown>;
   if (!parsed || typeof parsed !== 'object') return {};
   const cameraTrack = parsed.cameraTrack as CameraTrack | undefined;
-  // Strip cameraTrack off before handing the rest back as PoseTrack.
   const { cameraTrack: _omit, ...poseTrackFields } = parsed;
   const hasPoseTrackShape =
     'fps' in poseTrackFields && 'poses2D' in poseTrackFields;
@@ -270,6 +273,54 @@ function deserializePoseTrackBlob(raw: string | null | undefined): {
     poseTrack: hasPoseTrackShape ? (poseTrackFields as unknown as PoseTrack) : undefined,
     cameraTrack,
   };
+}
+
+/**
+ * We keep `report_json` as the serialization container for analytics too,
+ * so we don't need a migration for a new column. The envelope schema is:
+ *
+ *   { schema: 'report-envelope@1', report?: TechniqueReport, analytics?: AnalyticsTrack }
+ *
+ * Legacy rows (pre-envelope) contain a bare TechniqueReport object — we
+ * detect that shape (no `schema` field but looks like a report) and
+ * hydrate it as `{ report, analytics: undefined }`.
+ */
+const REPORT_ENVELOPE_SCHEMA = 'report-envelope@1';
+
+interface ReportEnvelope {
+  readonly schema: typeof REPORT_ENVELOPE_SCHEMA;
+  readonly report?: TechniqueReport;
+  readonly analytics?: AnalyticsTrack;
+}
+
+function serializeReportEnvelope(
+  report: TechniqueReport | undefined,
+  analytics: AnalyticsTrack | undefined,
+): string | null {
+  if (!report && !analytics) return null;
+  const envelope: ReportEnvelope = {
+    schema: REPORT_ENVELOPE_SCHEMA,
+    ...(report ? { report } : {}),
+    ...(analytics ? { analytics } : {}),
+  };
+  return JSON.stringify(envelope);
+}
+
+function deserializeReportEnvelope(raw: unknown): {
+  report?: TechniqueReport;
+  analytics?: AnalyticsTrack;
+} {
+  if (raw === null || raw === undefined) return {};
+  const parsed = JSON.parse(String(raw)) as unknown;
+  if (parsed === null || typeof parsed !== 'object') return {};
+  const obj = parsed as Record<string, unknown>;
+  if (obj.schema === REPORT_ENVELOPE_SCHEMA) {
+    return {
+      report: obj.report as TechniqueReport | undefined,
+      analytics: obj.analytics as AnalyticsTrack | undefined,
+    };
+  }
+  return { report: obj as unknown as TechniqueReport };
 }
 
 export interface Repositories {
