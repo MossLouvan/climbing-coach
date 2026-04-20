@@ -72,6 +72,7 @@ export function makeTrack(poses: ReadonlyArray<Pose2D>, fps = 30): PoseTrack {
     heightPx: 1920,
     poses2D: poses,
     poses3D: [],
+    source: 'mock',
   };
 }
 
