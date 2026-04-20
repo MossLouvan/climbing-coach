@@ -1,4 +1,4 @@
-import { JOINT_NAMES, type Keypoint2D, type Pose2D } from '@domain/models';
+import { JOINT_NAMES, type Keypoint2D, type Pose2D, type PoseSource } from '@domain/models';
 
 import type {
   PoseInferenceProgress,
@@ -29,6 +29,7 @@ import type {
 export class MockPoseProvider implements PoseProvider {
   public readonly name = 'mock-seeded-v1';
   public readonly isRealInference = false;
+  public readonly source: PoseSource = 'mock';
 
   constructor(
     private readonly opts: {
@@ -69,6 +70,7 @@ export class MockPoseProvider implements PoseProvider {
       poses2D: poses,
       providerName: this.name,
       isRealInference: false,
+      source: 'mock',
     };
   }
 }

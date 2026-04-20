@@ -4,6 +4,7 @@ import {
   type Keypoint2D,
   type Pose2D,
   type Pose3D,
+  type PoseSource,
   type PoseTrack,
 } from '@domain/models';
 
@@ -52,6 +53,7 @@ export class PseudoLifter {
     readonly widthPx: number;
     readonly heightPx: number;
     readonly poses2D: ReadonlyArray<Pose2D>;
+    readonly source?: PoseSource;
   }): PoseTrack {
     this.pxPerMeter = this.estimatePxPerMeter(track);
     const poses3D = track.poses2D.map((p) => this.liftFrame(p, track.widthPx, track.heightPx));
@@ -61,6 +63,7 @@ export class PseudoLifter {
       heightPx: track.heightPx,
       poses2D: track.poses2D,
       poses3D,
+      source: track.source ?? 'mock',
     };
   }
 

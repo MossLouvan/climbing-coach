@@ -1,4 +1,5 @@
 import type {
+  CameraTrack,
   Hold,
   MovementPhase,
   PoseTrack,
@@ -160,7 +161,7 @@ export class SessionRepository {
           session.status,
           session.note ?? null,
           session.phases ? JSON.stringify(session.phases) : null,
-          session.poseTrack ? JSON.stringify(session.poseTrack) : null,
+          serializePoseTrackBlob(session.poseTrack, session.cameraTrack),
           session.report ? JSON.stringify(session.report) : null,
           session.createdAtMs,
           Date.now(),
@@ -182,13 +183,14 @@ export class SessionRepository {
       readonly phases: ReadonlyArray<MovementPhase>;
       readonly poseTrack: PoseTrack;
       readonly report: TechniqueReport;
+      readonly cameraTrack?: CameraTrack;
     },
   ): Promise<void> {
     await this.db.run(
       'UPDATE sessions SET phases_json = ?, pose_track_json = ?, report_json = ?, status = ?, updated_at_ms = ? WHERE id = ?',
       [
         JSON.stringify(args.phases),
-        JSON.stringify(args.poseTrack),
+        serializePoseTrackBlob(args.poseTrack, args.cameraTrack),
         JSON.stringify(args.report),
         'analyzed' satisfies SessionStatus,
         Date.now(),
@@ -218,6 +220,9 @@ export class SessionRepository {
     const route = await this.routes.get(row.route_id as RouteId);
     if (!video) throw new Error(`session ${row.id}: missing video`);
     if (!route) throw new Error(`session ${row.id}: missing route`);
+    const { poseTrack, cameraTrack } = deserializePoseTrackBlob(
+      row.pose_track_json as string | null | undefined,
+    );
     return {
       id: row.id as SessionId,
       userId: row.user_id as UserId,
@@ -227,11 +232,44 @@ export class SessionRepository {
       status: row.status as SessionStatus,
       note: (row.note as string | null) ?? undefined,
       phases: row.phases_json ? JSON.parse(String(row.phases_json)) : undefined,
-      poseTrack: row.pose_track_json ? JSON.parse(String(row.pose_track_json)) : undefined,
+      poseTrack,
+      cameraTrack,
       report: row.report_json ? JSON.parse(String(row.report_json)) : undefined,
       createdAtMs: Number(row.created_at_ms),
     };
   }
+}
+
+/**
+ * Serialize a PoseTrack and an optional CameraTrack into a single JSON
+ * blob so we don't need a new schema column. Old blobs (pure PoseTrack
+ * shape) remain readable via `deserializePoseTrackBlob`.
+ */
+function serializePoseTrackBlob(
+  poseTrack: PoseTrack | undefined,
+  cameraTrack: CameraTrack | undefined,
+): string | null {
+  if (!poseTrack && !cameraTrack) return null;
+  if (!cameraTrack) return JSON.stringify(poseTrack);
+  return JSON.stringify({ ...poseTrack, cameraTrack });
+}
+
+function deserializePoseTrackBlob(raw: string | null | undefined): {
+  poseTrack?: PoseTrack;
+  cameraTrack?: CameraTrack;
+} {
+  if (!raw) return {};
+  const parsed = JSON.parse(String(raw)) as Record<string, unknown>;
+  if (!parsed || typeof parsed !== 'object') return {};
+  const cameraTrack = parsed.cameraTrack as CameraTrack | undefined;
+  // Strip cameraTrack off before handing the rest back as PoseTrack.
+  const { cameraTrack: _omit, ...poseTrackFields } = parsed;
+  const hasPoseTrackShape =
+    'fps' in poseTrackFields && 'poses2D' in poseTrackFields;
+  return {
+    poseTrack: hasPoseTrackShape ? (poseTrackFields as unknown as PoseTrack) : undefined,
+    cameraTrack,
+  };
 }
 
 export interface Repositories {

@@ -1,4 +1,4 @@
-import type { HoldId, NormalizedPoint2D, RouteId } from './common';
+import type { FrameIndex, HoldId, NormalizedPoint2D, RouteId } from './common';
 
 export type HoldType =
   | 'jug'
@@ -30,6 +30,21 @@ export interface Hold {
   /** Which hand/foot this hold is intended for, if the user specified. */
   readonly intendedLimb?: 'left_hand' | 'right_hand' | 'left_foot' | 'right_foot' | 'either';
   readonly label?: string;
+  /** Heuristic first-guess type before the user confirmed. Shown as
+   *  "Auto-detected: X" in the inspector. Empty when the user has
+   *  explicitly picked a type. */
+  readonly suggestedType?: HoldType;
+  /** Confidence of `suggestedType` in [0..1]. */
+  readonly suggestedTypeConfidence?: number;
+  /** Video timestamp (ms) of the frame the user tagged this hold on.
+   *  Lets us re-show the hold only when the camera is near that frame,
+   *  which matters when the camera pans so the hold leaves view. */
+  readonly capturedAtMs?: number;
+  /** Frame index this hold was tagged on. Used by the camera-motion
+   *  tracker to re-project the hold onto later frames as the camera
+   *  pans. When undefined, analyses derive it from
+   *  `capturedAtMs * fps / 1000`. */
+  readonly anchorFrame?: FrameIndex;
 }
 
 /**

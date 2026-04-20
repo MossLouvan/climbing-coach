@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 
 import { analyzeSession, type AnalysisProgress } from '@analysis/pipeline';
-import { MockPoseProvider, type PoseProvider } from '@analysis/pose';
+import { resolvePoseProvider, type PoseProvider } from '@analysis/pose';
 import {
   type Route,
   type Session,
@@ -106,12 +106,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!draft || !repos || !user) return null;
     set({ analysisProgress: { stage: 'pose' }, lastError: null });
     try {
+      // Prefer real on-device inference by default. The resolver
+      // silently falls back to the mock provider if the native pose
+      // module isn't available (e.g. Expo Go, Android).
+      const preferReal = opts?.preferRealInference ?? true;
+      const provider =
+        opts?.provider ?? (await resolvePoseProvider(preferReal));
       const analysis = await analyzeSession({
         video: draft.video,
         route: draft.route,
-        provider: opts?.provider ?? new MockPoseProvider(),
+        provider,
         options: {
-          preferRealInference: opts?.preferRealInference ?? false,
+          preferRealInference: preferReal,
           climberHeightM: user.heightM,
         },
         onProgress: (p) => set({ analysisProgress: p }),

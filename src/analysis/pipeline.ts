@@ -1,3 +1,4 @@
+import { trackCameraMotion } from '@analysis/holds/tracker';
 import { PseudoLifter } from '@analysis/lifting';
 import { type PoseProvider, resolvePoseProvider } from '@analysis/pose';
 import { segmentPhases } from '@domain/phases';
@@ -7,6 +8,7 @@ import {
   type ScoringConfig,
 } from '@domain/scoring';
 import type {
+  CameraTrack,
   MovementPhase,
   PoseTrack,
   Route,
@@ -36,12 +38,13 @@ export interface AnalysisOutput {
   readonly track: PoseTrack;
   readonly phases: ReadonlyArray<MovementPhase>;
   readonly report: TechniqueReport;
+  readonly cameraTrack: CameraTrack;
   readonly providerName: string;
   readonly isRealInference: boolean;
 }
 
 export interface AnalysisProgress {
-  readonly stage: 'pose' | 'lift' | 'phases' | 'score' | 'done';
+  readonly stage: 'pose' | 'lift' | 'camera' | 'phases' | 'score' | 'done';
   readonly framesProcessed?: number;
   readonly framesTotal?: number;
 }
@@ -73,6 +76,19 @@ export async function analyzeSession(args: {
     (p) => onProgress?.({ stage: 'pose', ...p }),
   );
 
+  onProgress?.({ stage: 'camera' });
+  // Derive camera-motion affine from raw 2D poses *before* lifting. We
+  // want the anchors (shoulders/hips) in their native image coords, not
+  // the reprojected 3D-lift versions.
+  const cameraTrack = trackCameraMotion({
+    fps: inference.fps,
+    widthPx: inference.widthPx,
+    heightPx: inference.heightPx,
+    poses2D: inference.poses2D,
+    poses3D: [],
+    source: inference.source,
+  });
+
   onProgress?.({ stage: 'lift' });
   const lifter = new PseudoLifter({ heightM: opts.climberHeightM });
   const track = lifter.lift({
@@ -80,6 +96,7 @@ export async function analyzeSession(args: {
     widthPx: inference.widthPx,
     heightPx: inference.heightPx,
     poses2D: inference.poses2D,
+    source: inference.source,
   });
 
   onProgress?.({ stage: 'phases' });
@@ -95,6 +112,7 @@ export async function analyzeSession(args: {
     track,
     phases,
     report,
+    cameraTrack,
     providerName: inference.providerName,
     isRealInference: inference.isRealInference,
   };

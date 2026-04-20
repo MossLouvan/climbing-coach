@@ -1,3 +1,5 @@
+import type { PoseSource } from '@domain/models';
+
 import type {
   PoseInferenceProgress,
   PoseInferenceRequest,
@@ -39,6 +41,7 @@ export class TFJSProviderUnavailableError extends Error {
 export class TFJSPoseProvider implements PoseProvider {
   public readonly name = 'tfjs-movenet-lightning';
   public readonly isRealInference = true;
+  public readonly source: PoseSource = 'moveNet';
 
   async infer(
     _request: PoseInferenceRequest,

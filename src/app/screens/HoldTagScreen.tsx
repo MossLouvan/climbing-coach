@@ -1,9 +1,11 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import React, { useCallback, useMemo, useState } from 'react';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Image, LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Text as SvgText } from 'react-native-svg';
 
+import { classifyHoldByRadius } from '@analysis/holds';
 import {
   makeId,
   type Hold,
@@ -56,6 +58,7 @@ export function HoldTagScreen(): React.ReactElement {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [layout, setLayout] = useState<{ w: number; h: number }>({ w: 1, h: 1 });
   const [selectedId, setSelectedId] = useState<HoldId | null>(null);
+  const [positionMs, setPositionMs] = useState(0);
 
   const holds = draft?.route.holds ?? [];
   const sequence = draft?.route.sequence ?? [];
@@ -63,6 +66,26 @@ export function HoldTagScreen(): React.ReactElement {
     () => holds.find((h) => h.id === selectedId) ?? null,
     [holds, selectedId],
   );
+
+  // Scrubbable video lets the user walk through the climb and tag each
+  // hold on the frame where it's clearly visible. The camera panning
+  // during the climb is no longer a blocker — every hold carries the
+  // timestamp of the frame it was tagged on (`capturedAtMs`).
+  const videoUri = draft?.video.uri ?? null;
+  const player = useVideoPlayer(videoUri, (p) => {
+    p.loop = true;
+    p.timeUpdateEventInterval = 0.1;
+    p.muted = true;
+    p.pause();
+  });
+
+  useEffect(() => {
+    if (!player) return;
+    const sub = player.addListener('timeUpdate', (e) => {
+      setPositionMs(Math.round((e.currentTime ?? 0) * 1000));
+    });
+    return () => sub.remove();
+  }, [player]);
 
   const onFrameLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -73,12 +96,22 @@ export function HoldTagScreen(): React.ReactElement {
     (p: NormalizedPoint2D) => {
       if (!draft) return;
       const id = makeId<'Hold'>(`hld_${Date.now().toString(36)}`);
+      const radiusGuess = 0.04;
+      const suggestion = classifyHoldByRadius(radiusGuess);
+      // Prefer the video's real fps when known; fall back to 30 for
+      // frame-index math during tagging (the tracker re-anchors against
+      // the actual analysis fps later).
+      const fps = draft.video.fps && draft.video.fps > 0 ? draft.video.fps : 30;
       const newHold: Hold = {
         id,
         routeId: draft.route.id,
         position: p,
-        radius: 0.04,
-        type: 'jug',
+        radius: radiusGuess,
+        type: suggestion.type,
+        suggestedType: suggestion.type,
+        suggestedTypeConfidence: suggestion.confidence,
+        capturedAtMs: positionMs,
+        anchorFrame: Math.round((positionMs * fps) / 1000),
         role: holds.length === 0 ? 'start' : 'intermediate',
       };
       const nextHolds = [...holds, newHold];
@@ -93,7 +126,7 @@ export function HoldTagScreen(): React.ReactElement {
       updateDraftRoute({ ...draft.route, holds: nextHolds, sequence: nextSeq });
       setSelectedId(id);
     },
-    [draft, holds, sequence, updateDraftRoute],
+    [draft, holds, sequence, updateDraftRoute, positionMs],
   );
 
   const removeHold = useCallback(
@@ -114,7 +147,25 @@ export function HoldTagScreen(): React.ReactElement {
       if (!draft) return;
       updateDraftRoute({
         ...draft.route,
-        holds: holds.map((h) => (h.id === id ? { ...h, ...patch } : h)),
+        holds: holds.map((h) => {
+          if (h.id !== id) return h;
+          const merged: Hold = { ...h, ...patch };
+          // If the user resized the hold, re-run the size-based guess
+          // but DO NOT overwrite an explicitly-set type. We only touch
+          // `suggestedType`, and `type` updates only when the user has
+          // not deviated from the previous suggestion yet.
+          if (patch.radius !== undefined && patch.radius !== h.radius) {
+            const g = classifyHoldByRadius(patch.radius);
+            const userUntouched = h.type === h.suggestedType;
+            return {
+              ...merged,
+              suggestedType: g.type,
+              suggestedTypeConfidence: g.confidence,
+              type: userUntouched ? g.type : merged.type,
+            };
+          }
+          return merged;
+        }),
       });
     },
     [draft, holds, updateDraftRoute],
@@ -135,7 +186,14 @@ export function HoldTagScreen(): React.ReactElement {
         onLayout={onFrameLayout}
         onStartShouldSetResponder={() => true}
       >
-        {draft.video.thumbnailUri ? (
+        {videoUri ? (
+          <VideoView
+            player={player}
+            style={StyleSheet.absoluteFill}
+            contentFit="contain"
+            nativeControls
+          />
+        ) : draft.video.thumbnailUri ? (
           <Image source={{ uri: draft.video.thumbnailUri }} style={StyleSheet.absoluteFill} />
         ) : (
           <View style={[StyleSheet.absoluteFill, { backgroundColor: colors.bgElevated }]} />
@@ -157,29 +215,43 @@ export function HoldTagScreen(): React.ReactElement {
           }}
         >
           <G>
-            {holds.map((h, i) => (
-              <G key={h.id}>
-                <Circle
-                  cx={h.position.x * 100}
-                  cy={h.position.y * 100}
-                  r={h.radius * 100}
-                  fill={selectedId === h.id ? colors.accent : 'transparent'}
-                  stroke={holdRoleColor(h.role)}
-                  strokeWidth={selectedId === h.id ? 1.6 : 1}
-                  opacity={0.9}
-                  onPress={() => setSelectedId(h.id)}
-                />
-                <SvgText
-                  x={h.position.x * 100}
-                  y={h.position.y * 100 + 1.8}
-                  fill={colors.text}
-                  fontSize={3.5}
-                  textAnchor="middle"
-                >
-                  {i + 1}
-                </SvgText>
-              </G>
-            ))}
+            {holds.map((h, i) => {
+              // Fade holds that were captured at a different video time,
+              // so camera panning doesn't pile every hold onto whatever
+              // frame the user is currently viewing.
+              const dt =
+                h.capturedAtMs === undefined
+                  ? 0
+                  : Math.abs(h.capturedAtMs - positionMs);
+              const opacity = dt <= 1500 ? 0.9 : dt <= 4000 ? 0.35 : 0.12;
+              return (
+                <G key={h.id} opacity={opacity}>
+                  <Circle
+                    cx={h.position.x * 100}
+                    cy={h.position.y * 100}
+                    r={h.radius * 100}
+                    fill={selectedId === h.id ? colors.accent : 'transparent'}
+                    stroke={holdRoleColor(h.role)}
+                    strokeWidth={selectedId === h.id ? 1.6 : 1}
+                    onPress={() => {
+                      setSelectedId(h.id);
+                      if (player && h.capturedAtMs !== undefined) {
+                        player.currentTime = h.capturedAtMs / 1000;
+                      }
+                    }}
+                  />
+                  <SvgText
+                    x={h.position.x * 100}
+                    y={h.position.y * 100 + 1.8}
+                    fill={colors.text}
+                    fontSize={3.5}
+                    textAnchor="middle"
+                  >
+                    {i + 1}
+                  </SvgText>
+                </G>
+              );
+            })}
             {sequence.length > 1 &&
               sequence.slice(1).map((step, i) => {
                 const prev = holds.find((h) => h.id === sequence[i].holdId);
@@ -203,7 +275,8 @@ export function HoldTagScreen(): React.ReactElement {
       </View>
 
       <Text style={[typography.label, { padding: spacing.m }]}>
-        Tap the frame to add a hold. Tap an existing hold to edit it.
+        Scrub to the frame where a hold is visible, then tap it.
+        Each hold remembers its frame, so panning the camera is fine.
       </Text>
 
       {selected && (
@@ -261,9 +334,40 @@ function HoldInspector({
   onChange: (p: Partial<Hold>) => void;
   onDelete: () => void;
 }): React.ReactElement {
+  const autoBadge =
+    hold.suggestedType && hold.type === hold.suggestedType
+      ? `Auto-detected: ${hold.suggestedType}${
+          hold.suggestedTypeConfidence
+            ? ` (${Math.round(hold.suggestedTypeConfidence * 100)}%)`
+            : ''
+        } — tap to change`
+      : hold.suggestedType
+      ? `Auto-detected: ${hold.suggestedType} — you set: ${hold.type}`
+      : null;
+
+  const bumpRadius = (delta: number) => {
+    const next = Math.max(0.012, Math.min(0.15, +(hold.radius + delta).toFixed(3)));
+    onChange({ radius: next });
+  };
+
   return (
     <View style={styles.inspector}>
       <Text style={typography.subtitle}>Hold #{hold.id.slice(-4)}</Text>
+      {autoBadge && (
+        <Text style={[typography.label, { color: colors.textDim }]}>{autoBadge}</Text>
+      )}
+      <View style={styles.row}>
+        <Text style={[typography.label, { alignSelf: 'center' }]}>Size</Text>
+        <Pressable style={styles.chip} onPress={() => bumpRadius(-0.01)}>
+          <Text style={{ color: colors.text }}>−</Text>
+        </Pressable>
+        <View style={[styles.chip, { backgroundColor: colors.bgElevated }]}>
+          <Text style={{ color: colors.text }}>{hold.radius.toFixed(3)}</Text>
+        </View>
+        <Pressable style={styles.chip} onPress={() => bumpRadius(+0.01)}>
+          <Text style={{ color: colors.text }}>+</Text>
+        </Pressable>
+      </View>
       <Text style={typography.label}>Type</Text>
       <View style={styles.row}>
         {HOLD_TYPES.map((t) => (
