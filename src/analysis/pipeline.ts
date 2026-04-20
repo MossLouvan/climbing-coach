@@ -1,3 +1,4 @@
+import { buildAnalyticsTrack } from '@analysis/kinematics';
 import { PseudoLifter } from '@analysis/lifting';
 import { type PoseProvider, resolvePoseProvider } from '@analysis/pose';
 import { segmentPhases } from '@domain/phases';
@@ -7,6 +8,7 @@ import {
   type ScoringConfig,
 } from '@domain/scoring';
 import type {
+  AnalyticsTrack,
   MovementPhase,
   PoseTrack,
   Route,
@@ -35,6 +37,7 @@ export interface AnalysisPipelineOptions {
 export interface AnalysisOutput {
   readonly track: PoseTrack;
   readonly phases: ReadonlyArray<MovementPhase>;
+  readonly analytics: AnalyticsTrack;
   readonly report: TechniqueReport;
   readonly providerName: string;
   readonly isRealInference: boolean;
@@ -86,6 +89,10 @@ export async function analyzeSession(args: {
   onProgress?.({ stage: 'phases' });
   const phases = segmentPhases(track.poses2D, route.holds, track.fps);
 
+  // Per-frame analytics: consumed by scoring + overlays. Built after
+  // phases so phase.supportingHoldIds can feed the support polygon test.
+  const analytics = buildAnalyticsTrack(track, phases, route.holds);
+
   onProgress?.({ stage: 'score' });
   const engine = new ScoringEngine(opts.scoringConfig ?? DEFAULT_SCORING_CONFIG);
   const report = engine.score({ track, phases, route });
@@ -95,6 +102,7 @@ export async function analyzeSession(args: {
   return {
     track,
     phases,
+    analytics,
     report,
     providerName: inference.providerName,
     isRealInference: inference.isRealInference,

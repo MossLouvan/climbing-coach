@@ -133,6 +133,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         phases: analysis.phases,
         poseTrack: analysis.track,
         report: analysis.report,
+        analytics: analysis.analytics,
       };
       await repos.routes.upsert(draft.route);
       await repos.sessions.upsert(session);
