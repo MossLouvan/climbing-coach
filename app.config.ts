@@ -57,5 +57,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   extra: {
     // V1 is local-first; no cloud backend URL required.
     buildProfile: process.env.EXPO_PUBLIC_BUILD_PROFILE ?? 'dev',
+    // Hugging Face inputs for wall detection. See src/config/env.ts for
+    // the full setup instructions.
+    hfApiKey: process.env.EXPO_PUBLIC_HF_API_KEY,
+    hfCaptionModel: process.env.EXPO_PUBLIC_HF_CAPTION_MODEL,
   },
 });

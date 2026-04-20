@@ -53,8 +53,17 @@ export async function seedDemoData(repos: Repositories): Promise<void> {
     video,
     route: DEMO_ROUTE,
     provider: new MockPoseProvider({ seed: 1234 }),
-    options: { preferRealInference: false, climberHeightM: 1.75 },
+    options: {
+      preferRealInference: false,
+      climberHeightM: 1.75,
+      wallDetectionEnabled: false,
+    },
   });
+  if (analysis.kind !== 'completed') {
+    throw new Error(
+      'Demo seed analysis skipped unexpectedly — wall detection should be disabled.',
+    );
+  }
 
   const session: Session = {
     id: makeId<'Session'>('ses_demo_v3') as SessionId,

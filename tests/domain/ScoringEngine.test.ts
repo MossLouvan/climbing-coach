@@ -3,6 +3,9 @@ import { MockPoseProvider } from '@analysis/pose';
 import { SCORE_CATEGORIES } from '@domain/models';
 import { DEMO_ROUTE } from '@storage/seeds/demoRoute';
 import type { Video, VideoId } from '@domain/models';
+import { expectCompleted } from '../testUtils/analysis';
+
+const noWallCheck = { wallDetectionEnabled: false } as const;
 
 const demoVideo: Video = {
   id: 'vid_test' as VideoId,
@@ -15,11 +18,14 @@ const demoVideo: Video = {
 
 describe('ScoringEngine', () => {
   it('produces bounded overall and per-category scores', async () => {
-    const out = await analyzeSession({
-      video: demoVideo,
-      route: DEMO_ROUTE,
-      provider: new MockPoseProvider({ seed: 99, durationSec: 4 }),
-    });
+    const out = expectCompleted(
+      await analyzeSession({
+        video: demoVideo,
+        route: DEMO_ROUTE,
+        provider: new MockPoseProvider({ seed: 99, durationSec: 4 }),
+        options: noWallCheck,
+      }),
+    );
     expect(out.report.overall).toBeGreaterThanOrEqual(0);
     expect(out.report.overall).toBeLessThanOrEqual(100);
     for (const cat of SCORE_CATEGORIES) {
@@ -30,11 +36,14 @@ describe('ScoringEngine', () => {
   });
 
   it('emits a coaching tip for at least one sub-par category on seeded data', async () => {
-    const out = await analyzeSession({
-      video: demoVideo,
-      route: DEMO_ROUTE,
-      provider: new MockPoseProvider({ seed: 99, durationSec: 4 }),
-    });
+    const out = expectCompleted(
+      await analyzeSession({
+        video: demoVideo,
+        route: DEMO_ROUTE,
+        provider: new MockPoseProvider({ seed: 99, durationSec: 4 }),
+        options: noWallCheck,
+      }),
+    );
     // The seeded climber isn't perfect; we expect at least 1 global
     // tip OR at least one per-phase tip to exist.
     const phaseTipCount = out.report.phaseScores.reduce(
@@ -45,11 +54,14 @@ describe('ScoringEngine', () => {
   });
 
   it('includes a 3D lift caveat when 3D confidence is low', async () => {
-    const out = await analyzeSession({
-      video: demoVideo,
-      route: DEMO_ROUTE,
-      provider: new MockPoseProvider({ seed: 99, durationSec: 4 }),
-    });
+    const out = expectCompleted(
+      await analyzeSession({
+        video: demoVideo,
+        route: DEMO_ROUTE,
+        provider: new MockPoseProvider({ seed: 99, durationSec: 4 }),
+        options: noWallCheck,
+      }),
+    );
     // Not a hard assert on presence/absence of caveats — we only
     // assert that whenever a caveat exists, it's a non-empty string.
     for (const c of out.report.caveats) {
@@ -59,11 +71,14 @@ describe('ScoringEngine', () => {
   });
 
   it('assigns scores to each phase', async () => {
-    const out = await analyzeSession({
-      video: demoVideo,
-      route: DEMO_ROUTE,
-      provider: new MockPoseProvider({ seed: 99, durationSec: 4 }),
-    });
+    const out = expectCompleted(
+      await analyzeSession({
+        video: demoVideo,
+        route: DEMO_ROUTE,
+        provider: new MockPoseProvider({ seed: 99, durationSec: 4 }),
+        options: noWallCheck,
+      }),
+    );
     expect(out.report.phaseScores.length).toBe(out.phases.length);
     for (const ps of out.report.phaseScores) {
       expect(ps.overall).toBeGreaterThanOrEqual(0);

@@ -11,6 +11,9 @@ module.exports = {
     '^@storage/(.*)$': '<rootDir>/src/storage/$1',
     '^@utils/(.*)$': '<rootDir>/src/utils/$1',
     '^@config/(.*)$': '<rootDir>/src/config/$1',
+    '^expo-constants$': '<rootDir>/tests/mocks/expo-constants.ts',
+    '^expo-file-system$': '<rootDir>/tests/mocks/expo-file-system.ts',
+    '^expo-video-thumbnails$': '<rootDir>/tests/mocks/expo-video-thumbnails.ts',
   },
   transform: {
     '^.+\\.(ts|tsx)$': [

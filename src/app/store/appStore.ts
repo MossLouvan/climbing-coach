@@ -51,7 +51,11 @@ interface AppState {
   refreshSessions: () => Promise<void>;
   setDraft: (draft: DraftSession | null) => void;
   updateDraftRoute: (route: Route) => void;
-  analyzeDraft: (opts?: { preferRealInference?: boolean; provider?: PoseProvider }) => Promise<Session | null>;
+  analyzeDraft: (opts?: {
+    preferRealInference?: boolean;
+    provider?: PoseProvider;
+    wallDetectionEnabled?: boolean;
+  }) => Promise<Session | null>;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -119,9 +123,21 @@ export const useAppStore = create<AppState>((set, get) => ({
         options: {
           preferRealInference: preferReal,
           climberHeightM: user.heightM,
+          wallDetectionEnabled: opts?.wallDetectionEnabled ?? true,
         },
         onProgress: (p) => set({ analysisProgress: p }),
       });
+      if (analysis.kind === 'skipped') {
+        const caption = analysis.wallDetection.caption || '(empty caption)';
+        set({
+          analysisProgress: null,
+          lastError:
+            `No climbing wall detected in this video. ` +
+            `The model described the first frame as: "${caption}". ` +
+            `Tap "Analyze anyway" to override.`,
+        });
+        return null;
+      }
       const session: Session = {
         id: `ses_${Date.now().toString(36)}` as Session['id'],
         userId: user.id,
