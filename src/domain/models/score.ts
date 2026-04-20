@@ -14,6 +14,12 @@ export const SCORE_CATEGORIES = [
   'dynamic_control', // controlled landings on dynamic moves
   'smoothness', // jerk-minimized joint trajectories
   'route_adherence', // follows tagged sequence
+  // Climber-specific expansions:
+  'hip_to_wall_distance', // hips pulled in to the wall vs bird-caged out
+  'overgripping', // lingering hand contact / wrist jitter while weighted
+  'hesitation', // pauses at a handhold before committing to the next move
+  'unnecessary_foot_cuts', // feet coming off the wall outside dyno phases
+  'commitment_on_dynos', // peak CoM velocity per reach distance on dynos
 ] as const;
 
 export type ScoreCategory = (typeof SCORE_CATEGORIES)[number];
