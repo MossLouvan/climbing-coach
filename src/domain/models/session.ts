@@ -1,3 +1,4 @@
+import type { AnalyticsTrack } from './analytics';
 import type { RouteId, SessionId, Timestamp, UserId, VideoId } from './common';
 import type { MovementPhase } from './phase';
 import type { PoseTrack } from './pose';
@@ -35,6 +36,7 @@ export interface Session {
   readonly phases?: ReadonlyArray<MovementPhase>;
   readonly poseTrack?: PoseTrack;
   readonly report?: TechniqueReport;
+  readonly analytics?: AnalyticsTrack;
   readonly note?: string;
 }
 
