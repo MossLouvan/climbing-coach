@@ -2,6 +2,7 @@ import { trackCameraMotion } from '@analysis/holds/tracker';
 import { buildAnalyticsTrack } from '@analysis/kinematics';
 import { PseudoLifter } from '@analysis/lifting';
 import { type PoseProvider, resolvePoseProvider } from '@analysis/pose';
+import { detectTechniqueEvents } from '@analysis/technique';
 import { segmentPhases } from '@domain/phases';
 import {
   DEFAULT_SCORING_CONFIG,
@@ -14,6 +15,7 @@ import type {
   MovementPhase,
   PoseTrack,
   Route,
+  TechniqueEvent,
   TechniqueReport,
   Video,
 } from '@domain/models';
@@ -22,7 +24,8 @@ import type {
  * Orchestrates:
  *
  *   video  →  2D pose track  →  camera-motion track  →  pseudo-3D lift
- *          →  phase segmentation  →  analytics  →  scoring  →  TechniqueReport
+ *          →  phase segmentation  →  analytics  →  technique events
+ *          →  scoring  →  TechniqueReport
  *
  * The orchestrator is the ONE place that knows the dependency order
  * between pose inference, lifting, phase segmentation, and scoring.
@@ -40,6 +43,7 @@ export interface AnalysisOutput {
   readonly track: PoseTrack;
   readonly phases: ReadonlyArray<MovementPhase>;
   readonly analytics: AnalyticsTrack;
+  readonly techniqueEvents: ReadonlyArray<TechniqueEvent>;
   readonly report: TechniqueReport;
   readonly cameraTrack: CameraTrack;
   readonly providerName: string;
@@ -47,7 +51,15 @@ export interface AnalysisOutput {
 }
 
 export interface AnalysisProgress {
-  readonly stage: 'pose' | 'lift' | 'camera' | 'phases' | 'analytics' | 'score' | 'done';
+  readonly stage:
+    | 'pose'
+    | 'lift'
+    | 'camera'
+    | 'phases'
+    | 'analytics'
+    | 'technique'
+    | 'score'
+    | 'done';
   readonly framesProcessed?: number;
   readonly framesTotal?: number;
 }
@@ -110,6 +122,9 @@ export async function analyzeSession(args: {
   // phases so phase.supportingHoldIds can feed the support polygon test.
   const analytics = buildAnalyticsTrack(track, phases, route.holds);
 
+  onProgress?.({ stage: 'technique' });
+  const techniqueEvents = detectTechniqueEvents(track, phases, route.holds);
+
   onProgress?.({ stage: 'score' });
   const engine = new ScoringEngine(opts.scoringConfig ?? DEFAULT_SCORING_CONFIG);
   const report = engine.score({ track, phases, route });
@@ -120,6 +135,7 @@ export async function analyzeSession(args: {
     track,
     phases,
     analytics,
+    techniqueEvents,
     report,
     cameraTrack,
     providerName: inference.providerName,

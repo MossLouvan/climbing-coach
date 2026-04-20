@@ -10,6 +10,7 @@ import type {
   Session,
   SessionId,
   SessionStatus,
+  TechniqueEvent,
   TechniqueReport,
   UserId,
   UserProfile,
@@ -161,7 +162,7 @@ export class SessionRepository {
           session.source,
           session.status,
           session.note ?? null,
-          session.phases ? JSON.stringify(session.phases) : null,
+          encodePhasesBlob(session.phases, session.techniqueEvents),
           serializePoseTrackBlob(session.poseTrack, session.cameraTrack),
           serializeReportEnvelope(session.report, session.analytics),
           session.createdAtMs,
@@ -186,12 +187,13 @@ export class SessionRepository {
       readonly report: TechniqueReport;
       readonly cameraTrack?: CameraTrack;
       readonly analytics?: AnalyticsTrack;
+      readonly techniqueEvents?: ReadonlyArray<TechniqueEvent>;
     },
   ): Promise<void> {
     await this.db.run(
       'UPDATE sessions SET phases_json = ?, pose_track_json = ?, report_json = ?, status = ?, updated_at_ms = ? WHERE id = ?',
       [
-        JSON.stringify(args.phases),
+        encodePhasesBlob(args.phases, args.techniqueEvents) ?? '[]',
         serializePoseTrackBlob(args.poseTrack, args.cameraTrack),
         serializeReportEnvelope(args.report, args.analytics),
         'analyzed' satisfies SessionStatus,
@@ -226,6 +228,7 @@ export class SessionRepository {
       row.pose_track_json as string | null | undefined,
     );
     const envelope = deserializeReportEnvelope(row.report_json);
+    const decoded = decodePhasesBlob(row.phases_json);
     return {
       id: row.id as SessionId,
       userId: row.user_id as UserId,
@@ -234,7 +237,8 @@ export class SessionRepository {
       source: row.source as Session['source'],
       status: row.status as SessionStatus,
       note: (row.note as string | null) ?? undefined,
-      phases: row.phases_json ? JSON.parse(String(row.phases_json)) : undefined,
+      phases: decoded.phases,
+      techniqueEvents: decoded.techniqueEvents,
       poseTrack,
       cameraTrack,
       ...(envelope.report !== undefined ? { report: envelope.report } : {}),
@@ -321,6 +325,50 @@ function deserializeReportEnvelope(raw: unknown): {
     };
   }
   return { report: obj as unknown as TechniqueReport };
+}
+
+/**
+ * The `phases_json` column originally stored just `MovementPhase[]`.
+ * To avoid a schema migration when adding TechniqueEvents, we now
+ * accept EITHER the legacy bare-array shape OR a wrapper object:
+ *   { phases: MovementPhase[], techniqueEvents?: TechniqueEvent[] }
+ * `decodePhasesBlob` handles both so older rows keep working.
+ */
+function encodePhasesBlob(
+  phases: ReadonlyArray<MovementPhase> | undefined,
+  events: ReadonlyArray<TechniqueEvent> | undefined,
+): string | null {
+  if (!phases && (!events || events.length === 0)) return null;
+  return JSON.stringify({
+    phases: phases ?? [],
+    techniqueEvents: events ?? [],
+  });
+}
+
+function decodePhasesBlob(raw: unknown): {
+  phases: ReadonlyArray<MovementPhase> | undefined;
+  techniqueEvents: ReadonlyArray<TechniqueEvent> | undefined;
+} {
+  if (raw === null || raw === undefined || raw === '') {
+    return { phases: undefined, techniqueEvents: undefined };
+  }
+  try {
+    const parsed = JSON.parse(String(raw));
+    if (Array.isArray(parsed)) {
+      return { phases: parsed as MovementPhase[], techniqueEvents: undefined };
+    }
+    if (parsed && typeof parsed === 'object') {
+      return {
+        phases: Array.isArray(parsed.phases) ? parsed.phases : undefined,
+        techniqueEvents: Array.isArray(parsed.techniqueEvents)
+          ? parsed.techniqueEvents
+          : undefined,
+      };
+    }
+  } catch {
+    // corrupt row — treat as missing
+  }
+  return { phases: undefined, techniqueEvents: undefined };
 }
 
 export interface Repositories {
