@@ -3,6 +3,7 @@ import type { FrameIndex, RouteId, SessionId, Timestamp, UserId, VideoId } from 
 import type { MovementPhase } from './phase';
 import type { PoseTrack } from './pose';
 import type { TechniqueReport } from './score';
+import type { TechniqueEvent } from './technique';
 
 export type SessionSource = 'live_recording' | 'upload';
 
@@ -60,6 +61,8 @@ export interface Session {
   readonly cameraTrack?: CameraTrack;
   /** Per-frame kinematics (CoM path, hip trajectory, balance, swing). */
   readonly analytics?: AnalyticsTrack;
+  /** Climbing-specific technique events layered on top of phases. */
+  readonly techniqueEvents?: ReadonlyArray<TechniqueEvent>;
   readonly note?: string;
 }
 
