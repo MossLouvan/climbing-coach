@@ -1,5 +1,7 @@
 import {
   JOINT_INDEX,
+  type CameraTrack,
+  type CameraTrackFrame,
   type FrameIndex,
   type Hold,
   type Keypoint2D,
@@ -7,6 +9,8 @@ import {
   type Pose2D,
   type PoseTrack,
 } from '@domain/models';
+
+export type { CameraTrack, CameraTrackFrame } from '@domain/models';
 
 /**
  * Pose-derived camera-motion tracking.
@@ -27,21 +31,6 @@ import {
  * bouldering/top-rope footage where the camera slowly follows the
  * climber up the wall.
  */
-
-/** Per-frame affine: maps reference-frame coordinates → frame coordinates. */
-export interface CameraTrackFrame {
-  readonly frame: FrameIndex;
-  readonly tx: number;
-  readonly ty: number;
-  readonly scale: number;
-}
-
-export interface CameraTrack {
-  readonly perFrame: ReadonlyArray<CameraTrackFrame>;
-  readonly referenceFrame: FrameIndex;
-  readonly confident: boolean;
-  readonly fps: number;
-}
 
 export interface CameraTrackOptions {
   readonly referenceFrame?: FrameIndex;
