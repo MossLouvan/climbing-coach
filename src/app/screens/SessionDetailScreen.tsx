@@ -1,4 +1,4 @@
-import { useRoute, type RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute, type NavigationProp, type RouteProp } from '@react-navigation/native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -11,7 +11,12 @@ import {
 } from 'react-native';
 
 import { projectHold } from '@analysis/holds/tracker';
+import { ComPathOverlay } from '@viz/overlay2d/ComPathOverlay';
+import { FootMarkers } from '@viz/overlay2d/FootMarkers';
+import { HipTrajectoryOverlay } from '@viz/overlay2d/HipTrajectoryOverlay';
+import { JointAngleLabels } from '@viz/overlay2d/JointAngleLabels';
 import { PoseOverlay } from '@viz/overlay2d/PoseOverlay';
+import { TechniqueEventPills } from '@viz/overlay2d/TechniqueEventPills';
 import { Skeleton3D } from '@viz/skeleton3d/Skeleton3D';
 import {
   type Hold,
@@ -23,6 +28,23 @@ import {
 import { useAppStore } from '../store/appStore';
 import { colors, radius, scoreColor, spacing, typography } from '../theme/tokens';
 import type { RootStackParamList } from '../navigation/RootNavigator';
+
+type PlaybackRate = 0.25 | 0.5 | 1;
+const PLAYBACK_RATES: ReadonlyArray<PlaybackRate> = [0.25, 0.5, 1];
+
+interface OverlayToggles {
+  readonly com: boolean;
+  readonly hips: boolean;
+  readonly angles: boolean;
+  readonly feet: boolean;
+}
+
+const DEFAULT_OVERLAYS: OverlayToggles = {
+  com: true,
+  hips: false,
+  angles: false,
+  feet: false,
+};
 
 type SessionDetailRoute = RouteProp<RootStackParamList, 'SessionDetail'>;
 
@@ -39,9 +61,12 @@ type SessionDetailRoute = RouteProp<RootStackParamList, 'SessionDetail'>;
  */
 export function SessionDetailScreen(): React.ReactElement {
   const route = useRoute<SessionDetailRoute>();
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const repos = useAppStore((s) => s.repos);
   const [session, setSession] = useState<Session | null>(null);
   const [positionMs, setPositionMs] = useState(0);
+  const [overlays, setOverlays] = useState<OverlayToggles>(DEFAULT_OVERLAYS);
+  const [playbackRate, setPlaybackRate] = useState<PlaybackRate>(1);
   const { width } = useWindowDimensions();
 
   useEffect(() => {
@@ -66,6 +91,12 @@ export function SessionDetailScreen(): React.ReactElement {
     });
     return () => sub.remove();
   }, [player]);
+
+  useEffect(() => {
+    if (!player) return;
+    // expo-video's useVideoPlayer exposes a mutable `playbackRate`.
+    (player as unknown as { playbackRate: number }).playbackRate = playbackRate;
+  }, [player, playbackRate]);
 
   const seekTo = (ms: number) => {
     setPositionMs(ms);
@@ -153,6 +184,26 @@ export function SessionDetailScreen(): React.ReactElement {
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
           <PoseOverlay pose={currentPose2D} holds={holdsVisibleNow} />
         </View>
+        {overlays.com && !isSyntheticOverReal && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <ComPathOverlay analytics={session.analytics} currentMs={positionMs} />
+          </View>
+        )}
+        {overlays.hips && !isSyntheticOverReal && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <HipTrajectoryOverlay analytics={session.analytics} currentMs={positionMs} />
+          </View>
+        )}
+        {overlays.angles && !isSyntheticOverReal && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <JointAngleLabels pose={currentPose2D} />
+          </View>
+        )}
+        {overlays.feet && !isSyntheticOverReal && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            <FootMarkers pose={currentPose2D} holds={holdsVisibleNow} />
+          </View>
+        )}
         {isSyntheticOverReal && (
           <View style={styles.poseBanner} pointerEvents="none">
             <Text style={[typography.label, { color: colors.textDim }]}>
@@ -161,6 +212,26 @@ export function SessionDetailScreen(): React.ReactElement {
           </View>
         )}
       </View>
+
+      <OverlayTogglePanel
+        overlays={overlays}
+        onChange={setOverlays}
+        playbackRate={playbackRate}
+        onChangeRate={setPlaybackRate}
+        onCompare={() =>
+          navigation.navigate('Compare', { a: session.id })
+        }
+      />
+
+      {session.techniqueEvents && session.techniqueEvents.length > 0 && (
+        <View style={{ marginTop: spacing.s }}>
+          <TechniqueEventPills
+            events={session.techniqueEvents}
+            currentMs={positionMs}
+            onSelect={(ev) => seekTo(ev.startMs)}
+          />
+        </View>
+      )}
 
       {!isSyntheticOverReal && (
         <View style={{ height: 320, marginTop: spacing.m }}>
@@ -260,6 +331,83 @@ export function SessionDetailScreen(): React.ReactElement {
         </View>
       )}
     </ScrollView>
+  );
+}
+
+interface OverlayTogglePanelProps {
+  readonly overlays: OverlayToggles;
+  readonly onChange: (next: OverlayToggles) => void;
+  readonly playbackRate: PlaybackRate;
+  readonly onChangeRate: (rate: PlaybackRate) => void;
+  readonly onCompare: () => void;
+}
+
+function OverlayTogglePanel({
+  overlays,
+  onChange,
+  playbackRate,
+  onChangeRate,
+  onCompare,
+}: OverlayTogglePanelProps): React.ReactElement {
+  const toggle = (key: keyof OverlayToggles): void => {
+    onChange({ ...overlays, [key]: !overlays[key] });
+  };
+  const items: ReadonlyArray<{ key: keyof OverlayToggles; label: string }> = [
+    { key: 'com', label: 'CoM' },
+    { key: 'hips', label: 'Hips' },
+    { key: 'angles', label: 'Angles' },
+    { key: 'feet', label: 'Feet' },
+  ];
+  return (
+    <View style={styles.toggleSection}>
+      <View style={styles.toggleRow}>
+        {items.map((it) => {
+          const active = overlays[it.key];
+          return (
+            <Pressable
+              key={it.key}
+              onPress={() => toggle(it.key)}
+              style={[
+                styles.toggleChip,
+                active && { backgroundColor: colors.accent, borderColor: colors.accent },
+              ]}
+            >
+              <Text
+                style={[
+                  typography.label,
+                  { color: active ? colors.bg : colors.text, fontWeight: '600' },
+                ]}
+              >
+                {it.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <View style={styles.toggleRow}>
+        {PLAYBACK_RATES.map((r) => {
+          const active = r === playbackRate;
+          return (
+            <Pressable
+              key={r}
+              onPress={() => onChangeRate(r)}
+              style={[
+                styles.toggleChip,
+                active && { backgroundColor: colors.accentMuted, borderColor: colors.accent },
+              ]}
+            >
+              <Text style={[typography.label, { color: colors.text }]}>{r}×</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          onPress={onCompare}
+          style={[styles.toggleChip, { borderColor: colors.accent }]}
+        >
+          <Text style={[typography.label, { color: colors.accent }]}>Compare with…</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -381,5 +529,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.s,
     paddingVertical: 2,
     borderRadius: radius.pill,
+  },
+  toggleSection: {
+    paddingHorizontal: spacing.l,
+    paddingVertical: spacing.s,
+    gap: spacing.s,
+  },
+  toggleRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.s,
+  },
+  toggleChip: {
+    paddingHorizontal: spacing.m,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.bgElevated,
   },
 });
