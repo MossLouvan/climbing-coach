@@ -1,0 +1,8 @@
+{
+  "name": "climbing-pose",
+  "version": "0.1.0",
+  "description": "Apple Vision pose detection for recorded climbing video.",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "private": true
+}

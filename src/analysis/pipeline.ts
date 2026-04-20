@@ -80,6 +80,7 @@ export async function analyzeSession(args: {
     widthPx: inference.widthPx,
     heightPx: inference.heightPx,
     poses2D: inference.poses2D,
+    source: inference.source,
   });
 
   onProgress?.({ stage: 'phases' });

@@ -1,6 +1,6 @@
 import { useRoute, type RouteProp } from '@react-navigation/native';
-import { Video as ExpoVideo, ResizeMode } from 'expo-av';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -13,6 +13,7 @@ import {
 import { PoseOverlay } from '@viz/overlay2d/PoseOverlay';
 import { Skeleton3D } from '@viz/skeleton3d/Skeleton3D';
 import {
+  type Hold,
   type Pose2D,
   type Pose3D,
   type Session,
@@ -40,7 +41,6 @@ export function SessionDetailScreen(): React.ReactElement {
   const repos = useAppStore((s) => s.repos);
   const [session, setSession] = useState<Session | null>(null);
   const [positionMs, setPositionMs] = useState(0);
-  const videoRef = useRef<ExpoVideo>(null);
   const { width } = useWindowDimensions();
 
   useEffect(() => {
@@ -51,13 +51,51 @@ export function SessionDetailScreen(): React.ReactElement {
     })();
   }, [repos, route.params.sessionId]);
 
+  const videoUri = session?.note === 'demo-seed' ? null : session?.video.uri ?? null;
+  const player = useVideoPlayer(videoUri, (p) => {
+    p.loop = true;
+    p.timeUpdateEventInterval = 0.1;
+    p.play();
+  });
+
+  useEffect(() => {
+    if (!player) return;
+    const sub = player.addListener('timeUpdate', (e) => {
+      setPositionMs(Math.round((e.currentTime ?? 0) * 1000));
+    });
+    return () => sub.remove();
+  }, [player]);
+
+  const seekTo = (ms: number) => {
+    setPositionMs(ms);
+    if (player) player.currentTime = ms / 1000;
+  };
+
+  // We hide the skeleton overlay on real footage when the pose track
+  // came from the mock provider — drawing a synthetic pose on top of a
+  // real climber is worse than showing nothing, because the user can't
+  // tell it's fake. Demo-seed sessions keep the overlay.
+  const poseSource = session?.poseTrack?.source ?? 'mock';
+  const isSyntheticOverReal =
+    poseSource === 'mock' && session?.note !== 'demo-seed';
+
   const currentPose2D: Pose2D | null = useMemo(() => {
-    if (!session?.poseTrack) return null;
+    if (!session?.poseTrack || isSyntheticOverReal) return null;
     return nearestByTimestamp(session.poseTrack.poses2D, positionMs);
-  }, [session, positionMs]);
+  }, [session, positionMs, isSyntheticOverReal]);
   const currentPose3D: Pose3D | null = useMemo(() => {
-    if (!session?.poseTrack) return null;
+    if (!session?.poseTrack || isSyntheticOverReal) return null;
     return nearestByTimestamp(session.poseTrack.poses3D, positionMs);
+  }, [session, positionMs, isSyntheticOverReal]);
+
+  const holdsVisibleNow: ReadonlyArray<Hold> = useMemo(() => {
+    const allHolds = (session as unknown as { route?: { holds: Hold[] } } | null)?.route?.holds ?? [];
+    if (allHolds.length === 0) return [];
+    const window = 1500; // ms — camera usually pans slowly
+    return allHolds.filter((h) => {
+      if (h.capturedAtMs === undefined) return true; // legacy holds: always show
+      return Math.abs(h.capturedAtMs - positionMs) <= window;
+    });
   }, [session, positionMs]);
 
   if (!session) {
@@ -83,28 +121,30 @@ export function SessionDetailScreen(): React.ReactElement {
             </Text>
           </View>
         ) : (
-          <ExpoVideo
-            ref={videoRef}
-            source={{ uri: session.video.uri }}
+          <VideoView
+            player={player}
             style={StyleSheet.absoluteFill}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay
-            isLooping
-            onPlaybackStatusUpdate={(s) => {
-              if ('positionMillis' in s && typeof s.positionMillis === 'number') {
-                setPositionMs(s.positionMillis);
-              }
-            }}
+            contentFit="contain"
+            nativeControls={false}
           />
         )}
         <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <PoseOverlay pose={currentPose2D} holds={session.poseTrack ? [] : []} />
+          <PoseOverlay pose={currentPose2D} holds={holdsVisibleNow} />
         </View>
+        {isSyntheticOverReal && (
+          <View style={styles.poseBanner} pointerEvents="none">
+            <Text style={[typography.label, { color: colors.textDim }]}>
+              Pose tracking not yet enabled on device — overlay hidden
+            </Text>
+          </View>
+        )}
       </View>
 
-      <View style={{ height: 320, marginTop: spacing.m }}>
-        <Skeleton3D pose={currentPose3D} showMesh autoRotate />
-      </View>
+      {!isSyntheticOverReal && (
+        <View style={{ height: 320, marginTop: spacing.m }}>
+          <Skeleton3D pose={currentPose3D} showMesh autoRotate />
+        </View>
+      )}
 
       {report && (
         <View style={styles.section}>
@@ -146,7 +186,7 @@ export function SessionDetailScreen(): React.ReactElement {
               return (
                 <Pressable
                   key={i}
-                  onPress={() => setPositionMs(p.startMs)}
+                  onPress={() => seekTo(p.startMs)}
                   style={{
                     width: w,
                     backgroundColor: phaseColor(p.kind),
@@ -249,6 +289,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bgElevated,
+  },
+  poseBanner: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
   },
   section: {
     backgroundColor: colors.bgCard,

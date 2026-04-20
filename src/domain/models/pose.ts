@@ -81,10 +81,18 @@ export interface Pose3D {
   readonly liftConfidence: Confidence;
 }
 
+/**
+ * Where this pose track came from — used to decide whether to render
+ * the skeleton over a real video. Synthetic tracks are misleading when
+ * overlaid on real footage (hardcoded motion won't match the climber).
+ */
+export type PoseSource = 'mock' | 'moveNet' | 'vision' | 'external';
+
 export interface PoseTrack {
   readonly fps: number;
   readonly widthPx: number;
   readonly heightPx: number;
   readonly poses2D: ReadonlyArray<Pose2D>;
   readonly poses3D: ReadonlyArray<Pose3D>;
+  readonly source: PoseSource;
 }

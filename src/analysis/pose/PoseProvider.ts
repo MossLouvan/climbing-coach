@@ -1,4 +1,4 @@
-import type { Pose2D } from '@domain/models';
+import type { Pose2D, PoseSource } from '@domain/models';
 
 /**
  * Abstract boundary between the UI and whatever engine actually does
@@ -44,11 +44,14 @@ export interface PoseInferenceResult {
    * seeded demo trace). The UI uses this to badge runs as "demo".
    */
   readonly isRealInference: boolean;
+  /** Canonical source tag propagated onto PoseTrack. */
+  readonly source: PoseSource;
 }
 
 export interface PoseProvider {
   readonly name: string;
   readonly isRealInference: boolean;
+  readonly source: PoseSource;
   infer(
     request: PoseInferenceRequest,
     onProgress?: (p: PoseInferenceProgress) => void,

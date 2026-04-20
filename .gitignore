@@ -23,14 +23,9 @@ web-build/
 *.mobileprovision
 *.orig.*
 
-# Native
-/ios/Pods/
-/ios/build/
-/ios/DerivedData/
-/android/app/build/
-/android/.gradle/
-/android/build/
-/android/local.properties
+# Native (prebuild output — regenerated via `npx expo prebuild --clean`)
+/ios/
+/android/
 
 # Testing
 coverage/

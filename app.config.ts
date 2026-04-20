@@ -6,15 +6,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: 'climbing-coach',
   version: '0.1.0',
   orientation: 'portrait',
-  icon: './assets/icons/icon.png',
   scheme: 'climbingcoach',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
-  splash: {
-    image: './assets/icons/splash.png',
-    resizeMode: 'contain',
-    backgroundColor: '#0B1020',
-  },
   assetBundlePatterns: ['**/*'],
   ios: {
     bundleIdentifier: 'dev.mosslouvan.climbingcoach',
@@ -32,12 +25,11 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: 'dev.mosslouvan.climbingcoach',
-    adaptiveIcon: {
-      foregroundImage: './assets/icons/adaptive.png',
-      backgroundColor: '#0B1020',
-    },
   },
   plugins: [
+    'expo-asset',
+    'expo-sqlite',
+    'expo-video',
     [
       'expo-camera',
       {
