@@ -1,3 +1,4 @@
+import type { AnalyticsTrack } from './analytics';
 import type { FrameIndex, RouteId, SessionId, Timestamp, UserId, VideoId } from './common';
 import type { MovementPhase } from './phase';
 import type { PoseTrack } from './pose';
@@ -57,6 +58,8 @@ export interface Session {
   /** Per-frame camera motion derived from pose anchors; used to
    *  re-project tagged holds as the camera pans. */
   readonly cameraTrack?: CameraTrack;
+  /** Per-frame kinematics (CoM path, hip trajectory, balance, swing). */
+  readonly analytics?: AnalyticsTrack;
   readonly note?: string;
 }
 
