@@ -2,6 +2,7 @@ import type { RouteId, SessionId, Timestamp, UserId, VideoId } from './common';
 import type { MovementPhase } from './phase';
 import type { PoseTrack } from './pose';
 import type { TechniqueReport } from './score';
+import type { TechniqueEvent } from './technique';
 
 export type SessionSource = 'live_recording' | 'upload';
 
@@ -35,6 +36,7 @@ export interface Session {
   readonly phases?: ReadonlyArray<MovementPhase>;
   readonly poseTrack?: PoseTrack;
   readonly report?: TechniqueReport;
+  readonly techniqueEvents?: ReadonlyArray<TechniqueEvent>;
   readonly note?: string;
 }
 
