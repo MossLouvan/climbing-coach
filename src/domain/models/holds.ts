@@ -1,4 +1,4 @@
-import type { HoldId, NormalizedPoint2D, RouteId } from './common';
+import type { FrameIndex, HoldId, NormalizedPoint2D, RouteId } from './common';
 
 export type HoldType =
   | 'jug'
@@ -40,6 +40,11 @@ export interface Hold {
    *  Lets us re-show the hold only when the camera is near that frame,
    *  which matters when the camera pans so the hold leaves view. */
   readonly capturedAtMs?: number;
+  /** Frame index this hold was tagged on. Used by the camera-motion
+   *  tracker to re-project the hold onto later frames as the camera
+   *  pans. When undefined, analyses derive it from
+   *  `capturedAtMs * fps / 1000`. */
+  readonly anchorFrame?: FrameIndex;
 }
 
 /**
