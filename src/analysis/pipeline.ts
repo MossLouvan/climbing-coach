@@ -1,5 +1,6 @@
 import { PseudoLifter } from '@analysis/lifting';
 import { type PoseProvider, resolvePoseProvider } from '@analysis/pose';
+import { detectTechniqueEvents } from '@analysis/technique';
 import { segmentPhases } from '@domain/phases';
 import {
   DEFAULT_SCORING_CONFIG,
@@ -10,6 +11,7 @@ import type {
   MovementPhase,
   PoseTrack,
   Route,
+  TechniqueEvent,
   TechniqueReport,
   Video,
 } from '@domain/models';
@@ -35,13 +37,14 @@ export interface AnalysisPipelineOptions {
 export interface AnalysisOutput {
   readonly track: PoseTrack;
   readonly phases: ReadonlyArray<MovementPhase>;
+  readonly techniqueEvents: ReadonlyArray<TechniqueEvent>;
   readonly report: TechniqueReport;
   readonly providerName: string;
   readonly isRealInference: boolean;
 }
 
 export interface AnalysisProgress {
-  readonly stage: 'pose' | 'lift' | 'phases' | 'score' | 'done';
+  readonly stage: 'pose' | 'lift' | 'phases' | 'technique' | 'score' | 'done';
   readonly framesProcessed?: number;
   readonly framesTotal?: number;
 }
@@ -85,6 +88,9 @@ export async function analyzeSession(args: {
   onProgress?.({ stage: 'phases' });
   const phases = segmentPhases(track.poses2D, route.holds, track.fps);
 
+  onProgress?.({ stage: 'technique' });
+  const techniqueEvents = detectTechniqueEvents(track, phases, route.holds);
+
   onProgress?.({ stage: 'score' });
   const engine = new ScoringEngine(opts.scoringConfig ?? DEFAULT_SCORING_CONFIG);
   const report = engine.score({ track, phases, route });
@@ -94,6 +100,7 @@ export async function analyzeSession(args: {
   return {
     track,
     phases,
+    techniqueEvents,
     report,
     providerName: inference.providerName,
     isRealInference: inference.isRealInference,
