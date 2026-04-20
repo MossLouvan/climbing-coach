@@ -1,4 +1,5 @@
 import {
+  type AnalyticsTrack,
   type MovementPhase,
   type PhaseScore,
   type PoseTrack,
@@ -18,6 +19,13 @@ import {
   smoothnessScore,
   stabilityScore,
 } from './heuristics';
+import {
+  commitmentOnDynosScore,
+  footCutsScore,
+  hesitationScore,
+  hipToWallDistanceScore,
+  overgrippingScore,
+} from './heuristics/index';
 
 /**
  * Composes per-phase heuristics into a full TechniqueReport.
@@ -32,6 +40,7 @@ export interface ScoringConfig {
 
 export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
   categoryWeights: {
+    // Existing weights — intentionally unchanged.
     balance: 1.2,
     hip_positioning: 1.0,
     flagging: 0.8,
@@ -40,6 +49,13 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
     dynamic_control: 0.9,
     smoothness: 0.5,
     route_adherence: 1.1,
+    // Climber-specific expansions — modest default weights so they
+    // influence the overall score without drowning out the originals.
+    hip_to_wall_distance: 0.7,
+    overgripping: 0.6,
+    hesitation: 0.5,
+    unnecessary_foot_cuts: 0.6,
+    commitment_on_dynos: 0.5,
   },
   lowPoseConfidenceThreshold: 0.4,
 };
@@ -51,13 +67,20 @@ export class ScoringEngine {
     readonly track: PoseTrack;
     readonly phases: ReadonlyArray<MovementPhase>;
     readonly route: Route;
+    readonly analytics?: AnalyticsTrack;
   }): TechniqueReport {
-    const { track, phases, route } = args;
+    const { track, phases, route, analytics } = args;
     const phaseScores: PhaseScore[] = phases.map((phase, idx) =>
-      this.scorePhase(idx, phase, track, route),
+      this.scorePhase(idx, phase, track, route, phases, analytics),
     );
 
-    const byCategory = this.aggregateCategories(phaseScores, track, phases, route);
+    const byCategory = this.aggregateCategories(
+      phaseScores,
+      track,
+      phases,
+      route,
+      analytics,
+    );
     const overall = this.weightedOverall(byCategory);
     const caveats = this.collectCaveats(track);
     const globalTips = this.deriveGlobalTips(byCategory, phaseScores);
@@ -77,6 +100,8 @@ export class ScoringEngine {
     phase: MovementPhase,
     track: PoseTrack,
     route: Route,
+    phases: ReadonlyArray<MovementPhase>,
+    analytics: AnalyticsTrack | undefined,
   ): PhaseScore {
     const poses = track.poses2D;
     const balance = balanceScore(phase, poses, route.holds);
@@ -86,6 +111,40 @@ export class ScoringEngine {
     const stab = stabilityScore(phase, poses);
     const dyn = dynamicControlScore(phase, poses);
 
+    // Climber-specific expansions.
+    const hipWall = hipToWallDistanceScore({
+      phase,
+      track,
+      analytics,
+      phaseIndex: idx,
+    });
+    const overgrip = overgrippingScore({
+      track,
+      holds: route.holds,
+      phase,
+      analytics,
+    });
+    const hesitate = hesitationScore({
+      track,
+      holds: route.holds,
+      phase,
+      analytics,
+    });
+    const footCuts = footCutsScore({
+      track,
+      holds: route.holds,
+      phases,
+      phase,
+      analytics,
+    });
+    const commitment = commitmentOnDynosScore({
+      track,
+      holds: route.holds,
+      phases,
+      phase,
+      analytics,
+    });
+
     const byCategory: Partial<Record<ScoreCategory, number>> = {
       balance: balance.score,
       hip_positioning: hip.score,
@@ -93,6 +152,11 @@ export class ScoringEngine {
       reach_efficiency: reach.score,
       stability: stab.score,
       dynamic_control: dyn.score,
+      hip_to_wall_distance: hipWall.score,
+      overgripping: overgrip.score,
+      hesitation: hesitate.score,
+      unnecessary_foot_cuts: footCuts.score,
+      commitment_on_dynos: commitment.score,
     };
     const overall = avgBy(byCategory, this.config.categoryWeights);
 
@@ -103,6 +167,11 @@ export class ScoringEngine {
     pushIfLow(tips, 'reach_efficiency', reach, phase);
     pushIfLow(tips, 'stability', stab, phase);
     pushIfLow(tips, 'dynamic_control', dyn, phase);
+    pushExpansionTip(tips, 'hip_to_wall_distance', hipWall, phase, idx);
+    pushExpansionTip(tips, 'overgripping', overgrip, phase, idx);
+    pushExpansionTip(tips, 'hesitation', hesitate, phase, idx);
+    pushExpansionTip(tips, 'unnecessary_foot_cuts', footCuts, phase, idx);
+    pushExpansionTip(tips, 'commitment_on_dynos', commitment, phase, idx);
 
     return {
       phaseIndex: idx,
@@ -118,6 +187,7 @@ export class ScoringEngine {
     track: PoseTrack,
     phases: ReadonlyArray<MovementPhase>,
     route: Route,
+    analytics: AnalyticsTrack | undefined,
   ): Record<ScoreCategory, number> {
     const sum: Record<string, number> = {};
     const count: Record<string, number> = {};
@@ -130,6 +200,32 @@ export class ScoringEngine {
     }
     const avg = (cat: ScoreCategory) =>
       count[cat] ? sum[cat] / count[cat] : 70;
+    // Whole-climb fallbacks for expansions: when no phase emitted a
+    // score we compute a track-wide score so the overall average isn't
+    // stuck at the neutral 70 default.
+    const hipWallWhole = hipToWallDistanceScore({ track, analytics }).score;
+    const overgripWhole = overgrippingScore({
+      track,
+      holds: route.holds,
+      analytics,
+    }).score;
+    const hesitateWhole = hesitationScore({
+      track,
+      holds: route.holds,
+      analytics,
+    }).score;
+    const footCutsWhole = footCutsScore({
+      track,
+      holds: route.holds,
+      phases,
+      analytics,
+    }).score;
+    const commitmentWhole = commitmentOnDynosScore({
+      track,
+      holds: route.holds,
+      phases,
+      analytics,
+    }).score;
     return {
       balance: avg('balance'),
       hip_positioning: avg('hip_positioning'),
@@ -139,6 +235,17 @@ export class ScoringEngine {
       dynamic_control: avg('dynamic_control'),
       smoothness: smoothnessScore(track).score,
       route_adherence: routeAdherenceScore(phases, route, track.poses2D).score,
+      hip_to_wall_distance: count['hip_to_wall_distance']
+        ? avg('hip_to_wall_distance')
+        : hipWallWhole,
+      overgripping: count['overgripping'] ? avg('overgripping') : overgripWhole,
+      hesitation: count['hesitation'] ? avg('hesitation') : hesitateWhole,
+      unnecessary_foot_cuts: count['unnecessary_foot_cuts']
+        ? avg('unnecessary_foot_cuts')
+        : footCutsWhole,
+      commitment_on_dynos: count['commitment_on_dynos']
+        ? avg('commitment_on_dynos')
+        : commitmentWhole,
     };
   }
 
@@ -228,6 +335,51 @@ function pushIfLow(
   });
 }
 
+/**
+ * Expansion-category tips fire at < 70 (vs. 75 for the original 8) so
+ * they don't drown the screen while we tune thresholds on real footage.
+ * Message copy combines the rationale from the heuristic with a
+ * concrete, actionable prefix.
+ */
+function pushExpansionTip(
+  tips: CoachingTip[],
+  cat: ScoreCategory,
+  result: { score: number; rationale: string },
+  phase: MovementPhase,
+  phaseIndex: number,
+): void {
+  if (result.score >= 70) return;
+  const severity: CoachingTip['severity'] =
+    result.score < 50 ? 'warning' : 'suggestion';
+  tips.push({
+    category: cat,
+    severity,
+    message: expansionTipMessage(cat, result.rationale, phaseIndex),
+    focusFrame: phase.startFrame,
+  });
+}
+
+function expansionTipMessage(
+  cat: ScoreCategory,
+  rationale: string,
+  phaseIndex: number,
+): string {
+  switch (cat) {
+    case 'hip_to_wall_distance':
+      return `${rationale} Try a drop-knee to draw the hips in on phase ${phaseIndex + 1}.`;
+    case 'overgripping':
+      return `${rationale} Loosen the grip between moves — relaxed hands save forearm strength.`;
+    case 'hesitation':
+      return `${rationale} Commit to the next move sooner; long pauses burn energy.`;
+    case 'unnecessary_foot_cuts':
+      return `${rationale} Keep both feet weighted on static moves — unnecessary energy cost.`;
+    case 'commitment_on_dynos':
+      return `${rationale} Drive harder with the hips on dynos — half-throws rarely stick.`;
+    default:
+      return rationale;
+  }
+}
+
 function friendlyTipFor(cat: ScoreCategory, score: number): string {
   switch (cat) {
     case 'balance':
@@ -246,6 +398,16 @@ function friendlyTipFor(cat: ScoreCategory, score: number): string {
       return 'Overall motion was jerky. Slow the transitions and let the weight shift finish.';
     case 'route_adherence':
       return `You drifted off the tagged route sequence (score ${Math.round(score)}). Review the intended order.`;
+    case 'hip_to_wall_distance':
+      return 'Hips drifted out from the wall. Use drop-knees and flagging to draw them back in.';
+    case 'overgripping':
+      return 'Grip pressure stayed high between moves. Loosen up between reaches to save forearm strength.';
+    case 'hesitation':
+      return 'Long pauses at holds before committing. Breathe, scan, then commit — hesitation burns energy.';
+    case 'unnecessary_foot_cuts':
+      return 'Feet cut off the wall during static moves. Drive through the feet instead of swinging off the arms.';
+    case 'commitment_on_dynos':
+      return 'Dynos lacked commitment. Drive harder with the hips on the next throw — half-throws rarely stick.';
     default:
       return 'General improvement opportunity.';
   }

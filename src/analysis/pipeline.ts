@@ -112,7 +112,7 @@ export async function analyzeSession(args: {
 
   onProgress?.({ stage: 'score' });
   const engine = new ScoringEngine(opts.scoringConfig ?? DEFAULT_SCORING_CONFIG);
-  const report = engine.score({ track, phases, route });
+  const report = engine.score({ track, phases, route, analytics });
 
   onProgress?.({ stage: 'done' });
 
