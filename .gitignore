@@ -64,3 +64,6 @@ scripts/export/__pycache__/
 *.pt
 *.mlpackage
 *.tflite
+# Intermediate artifacts produced during CoreML / TFLite export.
+*.onnx
+*.npy
