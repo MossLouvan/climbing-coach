@@ -19,8 +19,8 @@ sourceKind: public-dataset
 license:
   spdxId: CC-BY-4.0
   url: https://universe.roboflow.com/vaf/bouldering-poses
-  verifiedBy: null          # <-- HUMAN: put your name here
-  verifiedAt: null          # <-- HUMAN: ISO date
+  verifiedBy: Moss Louvan         # <-- HUMAN: put your name here
+  verifiedAt: "2026-04-30"        # ISO date — quoted so YAML keeps it as a string per dataset_manifest.schema.json
   notes: >-
     Roboflow Universe page states CC BY 4.0 per scout report on
     2026-04-24. The project ships ~41 images under a single class
