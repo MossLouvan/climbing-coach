@@ -22,6 +22,8 @@ function loadNative() {
   return cached;
 }
 
+// --- Apple Vision path (legacy, iOS only) ---------------------------
+
 function isClimbingPoseAvailable() {
   try {
     const m = loadNative();
@@ -36,7 +38,44 @@ function detectPosesInVideo(videoUri, targetFps, maxFrames) {
   return m.detectPosesInVideo(videoUri, targetFps, maxFrames == null ? null : maxFrames);
 }
 
+// --- Ultralytics YOLO-Pose path -------------------------------------
+//
+// Entry points return `false` / reject when either:
+//   (a) the native binary does not include the YOLO bridge, or
+//   (b) no weights file is bundled under the platform's weights dir.
+// The JS caller (YoloPoseProvider) treats this as a "not bundled"
+// signal and falls back via `resolvePoseProvider`.
+
+function isYoloPoseAvailable() {
+  try {
+    const m = loadNative();
+    if (m == null || typeof m.isYoloPoseAvailable !== 'function') return false;
+    return m.isYoloPoseAvailable() === true;
+  } catch (e) {
+    return false;
+  }
+}
+
+function detectPosesInVideoWithYolo(videoUri, targetFps, maxFrames) {
+  const m = loadNative();
+  if (m == null || typeof m.detectPosesInVideoWithYolo !== 'function') {
+    return Promise.reject(
+      new Error(
+        'climbing-pose: YOLO-Pose bridge not present in this native build. ' +
+          'Rebuild against the module version that includes the YOLO entry points.',
+      ),
+    );
+  }
+  return m.detectPosesInVideoWithYolo(
+    videoUri,
+    targetFps,
+    maxFrames == null ? null : maxFrames,
+  );
+}
+
 module.exports = {
   isClimbingPoseAvailable,
   detectPosesInVideo,
+  isYoloPoseAvailable,
+  detectPosesInVideoWithYolo,
 };

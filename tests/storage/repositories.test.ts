@@ -9,6 +9,7 @@ import {
 } from '@domain/models';
 import { applyMigrations, inMemoryDb, makeRepositories } from '@storage/index';
 import { DEMO_ROUTE, DEMO_USER } from '@storage/seeds/demoRoute';
+import { expectCompleted } from '../testUtils/analysis';
 
 describe('storage repositories (inMemoryDb)', () => {
   it('round-trips a user', async () => {
@@ -48,11 +49,14 @@ describe('storage repositories (inMemoryDb)', () => {
       heightPx: 1920,
       fps: 30,
     };
-    const analysis = await analyzeSession({
-      video,
-      route: DEMO_ROUTE,
-      provider: new MockPoseProvider({ seed: 5, durationSec: 2 }),
-    });
+    const analysis = expectCompleted(
+      await analyzeSession({
+        video,
+        route: DEMO_ROUTE,
+        provider: new MockPoseProvider({ seed: 5, durationSec: 2 }),
+        options: { wallDetectionEnabled: false },
+      }),
+    );
     const session: Session = {
       id: makeId<'Session'>('ses_ut') as SessionId,
       userId: DEMO_USER.id,

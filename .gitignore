@@ -49,3 +49,18 @@ coverage/
 
 # Memory (per-machine agent memory, not code)
 memory/
+
+# Local agent harness scratch (worktrees, tmp state — NOT code)
+.claude/
+
+# YOLO-Pose model artifacts — checkpoints + exported weights live in
+# git only as paths; the binaries themselves are out-of-repo.
+# `models/pretrained/` holds the upstream Ultralytics .pt; the
+# converted `.mlpackage` (iOS) / `.tflite` (Android) live under
+# `modules/climbing-pose/<platform>/weights/` after running the
+# scripts in `scripts/export/`.
+scripts/export/.venv/
+scripts/export/__pycache__/
+*.pt
+*.mlpackage
+*.tflite

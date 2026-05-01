@@ -85,8 +85,12 @@ export interface Pose3D {
  * Where this pose track came from — used to decide whether to render
  * the skeleton over a real video. Synthetic tracks are misleading when
  * overlaid on real footage (hardcoded motion won't match the climber).
+ *
+ * `'yolo'` is the climbing-fine-tuned Ultralytics YOLO-Pose path (see
+ * `docs/yolo-pose-migration-spec.md`). Exists as a distinct source so
+ * sessions recorded under the new model can be filtered for eval.
  */
-export type PoseSource = 'mock' | 'moveNet' | 'vision' | 'external';
+export type PoseSource = 'mock' | 'moveNet' | 'vision' | 'yolo' | 'external';
 
 export interface PoseTrack {
   readonly fps: number;

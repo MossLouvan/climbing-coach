@@ -3,6 +3,10 @@ import { buildAnalyticsTrack } from '@analysis/kinematics';
 import { PseudoLifter } from '@analysis/lifting';
 import { type PoseProvider, resolvePoseProvider } from '@analysis/pose';
 import { detectTechniqueEvents } from '@analysis/technique';
+import {
+  detectClimbingWall,
+  type WallDetectionOutcome,
+} from '@analysis/wallDetector';
 import { segmentPhases } from '@domain/phases';
 import {
   DEFAULT_SCORING_CONFIG,
@@ -33,13 +37,20 @@ import type {
  * so the pipeline stays pluggable end-to-end.
  */
 export interface AnalysisPipelineOptions {
-  readonly preferRealInference: boolean;
+  readonly preferRealInference?: boolean;
   readonly climberHeightM?: number;
   readonly scoringConfig?: ScoringConfig;
   readonly targetFps?: number;
+  /**
+   * When true (default), the first frame is sent to a captioning model
+   * and the run is aborted if the caption has no climbing-wall signal.
+   * Set to false to bypass the gate (e.g. user overrides, tests).
+   */
+  readonly wallDetectionEnabled?: boolean;
 }
 
 export interface AnalysisOutput {
+  readonly kind: 'completed';
   readonly track: PoseTrack;
   readonly phases: ReadonlyArray<MovementPhase>;
   readonly analytics: AnalyticsTrack;
@@ -48,10 +59,20 @@ export interface AnalysisOutput {
   readonly cameraTrack: CameraTrack;
   readonly providerName: string;
   readonly isRealInference: boolean;
+  readonly wallDetection?: WallDetectionOutcome;
 }
+
+export interface AnalysisSkipped {
+  readonly kind: 'skipped';
+  readonly reason: 'no_climbing_wall_detected';
+  readonly wallDetection: Extract<WallDetectionOutcome, { outcome: 'skip' }>;
+}
+
+export type AnalysisResult = AnalysisOutput | AnalysisSkipped;
 
 export interface AnalysisProgress {
   readonly stage:
+    | 'wall_check'
     | 'pose'
     | 'lift'
     | 'camera'
@@ -70,15 +91,33 @@ export async function analyzeSession(args: {
   readonly options?: AnalysisPipelineOptions;
   readonly provider?: PoseProvider;
   readonly onProgress?: (p: AnalysisProgress) => void;
-}): Promise<AnalysisOutput> {
+  readonly detectWall?: typeof detectClimbingWall;
+}): Promise<AnalysisResult> {
   const { video, route, options, onProgress } = args;
   const opts: AnalysisPipelineOptions = {
     preferRealInference: false,
     targetFps: 10,
+    wallDetectionEnabled: true,
     ...options,
   };
 
-  const provider = args.provider ?? (await resolvePoseProvider(opts.preferRealInference));
+  let wallDetection: WallDetectionOutcome | undefined;
+  if (opts.wallDetectionEnabled) {
+    onProgress?.({ stage: 'wall_check' });
+    wallDetection = await (args.detectWall ?? detectClimbingWall)({
+      videoUri: video.uri,
+    });
+    if (wallDetection.outcome === 'skip') {
+      return {
+        kind: 'skipped',
+        reason: 'no_climbing_wall_detected',
+        wallDetection,
+      };
+    }
+  }
+
+  const provider =
+    args.provider ?? (await resolvePoseProvider(opts.preferRealInference ?? false));
 
   onProgress?.({ stage: 'pose' });
   const inference = await provider.infer(
@@ -132,6 +171,7 @@ export async function analyzeSession(args: {
   onProgress?.({ stage: 'done' });
 
   return {
+    kind: 'completed',
     track,
     phases,
     analytics,
@@ -140,5 +180,6 @@ export async function analyzeSession(args: {
     cameraTrack,
     providerName: inference.providerName,
     isRealInference: inference.isRealInference,
+    wallDetection,
   };
 }

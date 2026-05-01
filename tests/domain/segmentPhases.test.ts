@@ -2,6 +2,7 @@ import { analyzeSession } from '@analysis/pipeline';
 import { MockPoseProvider } from '@analysis/pose';
 import { DEMO_ROUTE } from '@storage/seeds/demoRoute';
 import type { Video, VideoId } from '@domain/models';
+import { expectCompleted } from '../testUtils/analysis';
 
 const demoVideo: Video = {
   id: 'vid_test' as VideoId,
@@ -14,11 +15,14 @@ const demoVideo: Video = {
 
 describe('segmentPhases via analyzeSession', () => {
   it('produces non-overlapping phases covering the entire pose track', async () => {
-    const out = await analyzeSession({
-      video: demoVideo,
-      route: DEMO_ROUTE,
-      provider: new MockPoseProvider({ seed: 1, durationSec: 4 }),
-    });
+    const out = expectCompleted(
+      await analyzeSession({
+        video: demoVideo,
+        route: DEMO_ROUTE,
+        provider: new MockPoseProvider({ seed: 1, durationSec: 4 }),
+        options: { wallDetectionEnabled: false },
+      }),
+    );
     expect(out.phases.length).toBeGreaterThan(0);
     for (let i = 1; i < out.phases.length; i++) {
       expect(out.phases[i].startFrame).toBeGreaterThan(out.phases[i - 1].endFrame - 1);
@@ -30,11 +34,14 @@ describe('segmentPhases via analyzeSession', () => {
   });
 
   it('contains at least one reach-like or setup phase in the seeded climb', async () => {
-    const out = await analyzeSession({
-      video: demoVideo,
-      route: DEMO_ROUTE,
-      provider: new MockPoseProvider({ seed: 1, durationSec: 4 }),
-    });
+    const out = expectCompleted(
+      await analyzeSession({
+        video: demoVideo,
+        route: DEMO_ROUTE,
+        provider: new MockPoseProvider({ seed: 1, durationSec: 4 }),
+        options: { wallDetectionEnabled: false },
+      }),
+    );
     const kinds = new Set(out.phases.map((p) => p.kind));
     // The mock trace is deliberately dominated by setup → weight_shift →
     // reach-ish motion; we just require that the segmenter isn't stuck
