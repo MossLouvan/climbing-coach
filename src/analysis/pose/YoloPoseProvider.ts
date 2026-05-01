@@ -12,22 +12,24 @@ import type {
 } from './PoseProvider';
 
 /**
- * Real pose inference via a climbing-fine-tuned Ultralytics YOLO-Pose
- * model, executed by the local Expo module at `modules/climbing-pose`.
+ * Real pose inference via a pretrained Ultralytics YOLO-Pose model
+ * (e.g. `yolo26n-pose`), executed by the local Expo module at
+ * `modules/climbing-pose`.
  *
  * The native side loads a bundled CoreML (iOS) or TFLite (Android)
  * weights file, runs inference at the requested sampling rate, and
  * returns 17 COCO-ordered keypoints per frame — the same contract as
  * `VisionPoseProvider`, so callers can swap providers freely.
  *
- * Until a trained + bundled weights file ships with the app, the
+ * Until a converted + bundled weights file ships with the app, the
  * native module's `isYoloPoseAvailable()` will return false and this
  * provider throws `YoloProviderUnavailableError` with code
  * `NOT_BUNDLED`. The resolver uses that signal to fall back to
  * `VisionPoseProvider` on iOS or `MockPoseProvider` elsewhere.
  *
- * Training + export pipeline: see `scripts/training/` and
- * `docs/yolo-pose-migration-spec.md`.
+ * Pretrained weights live in `models/pretrained/`. Conversion to
+ * CoreML / TFLite is handled by `scripts/export/`. See
+ * `docs/yolo-pose-migration-spec.md` for the full integration path.
  */
 export type YoloProviderUnavailableCode =
   | 'NOT_BUNDLED'
@@ -155,8 +157,8 @@ export class YoloPoseProvider implements PoseProvider {
       throw new YoloProviderUnavailableError(
         'NOT_BUNDLED',
         'YOLO-Pose weights are not bundled in this build. ' +
-          'Train and export a model via scripts/training/, place the artifact under ' +
-          'modules/climbing-pose/<platform>/weights/, and rebuild. ' +
+          'Convert the pretrained .pt under models/pretrained/ via scripts/export/, ' +
+          'place the resulting .mlpackage / .tflite under modules/climbing-pose/<platform>/weights/, and rebuild. ' +
           'Falling back to VisionPoseProvider / MockPoseProvider is handled by resolvePoseProvider().',
       );
     }

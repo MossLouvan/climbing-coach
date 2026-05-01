@@ -53,25 +53,14 @@ memory/
 # Local agent harness scratch (worktrees, tmp state — NOT code)
 .claude/
 
-# YOLO training — data + runs live out-of-repo (DVC-tracked).
-# Manifests stay in git so license sign-offs are reviewable.
-data/raw/
-data/frames/
-data/labels/
-data/splits/
-data/eval_slices/
-!data/manifests/
-runs/
-scripts/training/.venv/
-scripts/training/__pycache__/
+# YOLO-Pose model artifacts — checkpoints + exported weights live in
+# git only as paths; the binaries themselves are out-of-repo.
+# `models/pretrained/` holds the upstream Ultralytics .pt; the
+# converted `.mlpackage` (iOS) / `.tflite` (Android) live under
+# `modules/climbing-pose/<platform>/weights/` after running the
+# scripts in `scripts/export/`.
+scripts/export/.venv/
+scripts/export/__pycache__/
 *.pt
 *.mlpackage
 *.tflite
-
-# Local YOLO-Pose dataset layout — frames/labels live on the training
-# box only. Config + README + .gitkeep markers stay in git so the
-# folder shape is reviewable.
-datasets/climbing-pose/images/**/*
-datasets/climbing-pose/labels/**/*
-!datasets/climbing-pose/images/**/.gitkeep
-!datasets/climbing-pose/labels/**/.gitkeep
