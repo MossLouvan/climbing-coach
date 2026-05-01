@@ -1,0 +1,82 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Climbing-pose dataset manifest",
+  "description": "Every source used in training MUST have one of these files under data/manifests/. No manifest, no training.",
+  "type": "object",
+  "required": ["sourceId", "sourceKind", "license", "frameCount", "climbingFraction", "contentHash"],
+  "properties": {
+    "sourceId": {
+      "type": "string",
+      "description": "Stable slug, e.g. 'coco-pose-2017', 'roboflow-climbing-xyz', 'yt-<videoId>'."
+    },
+    "sourceKind": {
+      "type": "string",
+      "enum": ["public-dataset", "research-request", "self-labeled-video", "synthetic"]
+    },
+    "license": {
+      "type": "object",
+      "required": ["spdxId", "verifiedBy", "verifiedAt"],
+      "properties": {
+        "spdxId": { "type": "string", "description": "SPDX identifier, e.g. CC-BY-4.0, CC-BY-SA-4.0, Research-Only." },
+        "url": { "type": "string", "format": "uri" },
+        "verifiedBy": { "type": "string", "description": "Human who confirmed license compatibility." },
+        "verifiedAt": { "type": "string", "format": "date" },
+        "notes": { "type": "string" }
+      }
+    },
+    "consent": {
+      "type": "object",
+      "description": "Only required for self-labeled footage of identifiable climbers.",
+      "properties": {
+        "subjectConsented": { "type": "boolean" },
+        "consentDocUri": { "type": "string" }
+      }
+    },
+    "frameCount": { "type": "integer", "minimum": 1 },
+    "climbingFraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1,
+      "description": "Fraction of frames where a climber is actively climbing. Used to stratify splits."
+    },
+    "wallAngleDistribution": {
+      "type": "object",
+      "properties": {
+        "slab": { "type": "number" },
+        "vertical": { "type": "number" },
+        "overhang": { "type": "number" },
+        "roof": { "type": "number" }
+      }
+    },
+    "climberDemographics": {
+      "type": "object",
+      "properties": {
+        "bodyTypes": { "type": "array", "items": { "type": "string" } },
+        "femaleFraction": { "type": "number", "minimum": 0, "maximum": 1 },
+        "skinToneDistribution": { "type": "object" }
+      }
+    },
+    "hardMoves": {
+      "type": "object",
+      "description": "Counts of explicit labels for hard-moves slice.",
+      "properties": {
+        "heelHook": { "type": "integer" },
+        "toeHook": { "type": "integer" },
+        "dropKnee": { "type": "integer" },
+        "flag": { "type": "integer" },
+        "gaston": { "type": "integer" },
+        "midDyno": { "type": "integer" },
+        "inverted": { "type": "integer" }
+      }
+    },
+    "contentHash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "Hash of the tarball or frame manifest this entry refers to. Used to detect silent drift."
+    },
+    "dvcRev": {
+      "type": "string",
+      "description": "DVC revision at which this manifest was last verified."
+    }
+  }
+}

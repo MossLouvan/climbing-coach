@@ -1,0 +1,43 @@
+# Ultralytics YOLO-Pose dataset config for climbing-fine-tune v1 (local
+# dataset layout). Referenced by `scripts/training/train.py` when the
+# dataset is laid out under datasets/climbing-pose/ instead of the
+# DVC-backed `data/splits/*.txt` layout used by
+# scripts/training/climbing_pose.yaml.
+#
+# Keypoint topology MUST stay 17-COCO — the app's domain model
+# (src/domain/models/pose.ts::JOINT_NAMES) depends on it.
+#
+# IMPORTANT: the images/ and labels/ folders are intentionally empty in
+# this commit. Frames must NOT be committed to the repo — licensing for
+# COCO-Pose (Flickr-origin images) and Roboflow VAF (CC-BY-4.0 but not
+# signed-off yet) explicitly prohibit in-repo redistribution in the
+# per-source manifests under data/manifests/. Populate the folders on a
+# training box via the Ultralytics COCO-Pose download pipeline and the
+# Roboflow export, AFTER a named human has signed
+#   data/manifests/coco-pose-2017.yaml
+#   data/manifests/roboflow-vaf-bouldering-poses.yaml
+# See docs/yolo_pose_dataset_conversion.md for the exact steps.
+
+# Dataset root is the folder containing this file.
+path: .
+train: images/train
+val:   images/val
+test:  images/test
+
+# 17 COCO keypoints, same order as JOINT_NAMES in
+# src/domain/models/pose.ts. Each keypoint has (x, y, visibility).
+kpt_shape: [17, 3]
+
+# Left/right flip index for horizontal-flip augmentation.
+# MUST match MockPoseProvider / VisionPoseProvider / YoloPoseProvider layout.
+# Indices:
+#   0 nose, 1 L-eye, 2 R-eye, 3 L-ear, 4 R-ear,
+#   5 L-shoulder, 6 R-shoulder, 7 L-elbow, 8 R-elbow,
+#   9 L-wrist, 10 R-wrist, 11 L-hip, 12 R-hip,
+#   13 L-knee, 14 R-knee, 15 L-ankle, 16 R-ankle
+flip_idx: [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15]
+
+# Single class — the climber. We ignore other humans in the frame
+# (belayer, spotter, onlookers) at label time.
+names:
+  0: climber

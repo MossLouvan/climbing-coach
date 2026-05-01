@@ -61,5 +61,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     // the full setup instructions.
     hfApiKey: process.env.EXPO_PUBLIC_HF_API_KEY,
     hfCaptionModel: process.env.EXPO_PUBLIC_HF_CAPTION_MODEL,
+    // Pose backend selection — see docs/yolo-pose-migration-spec.md
+    // and src/config/env.ts for the full set of values.
+    analysisPoseBackend: process.env.EXPO_PUBLIC_ANALYSIS_POSE_BACKEND ?? 'auto',
   },
 });

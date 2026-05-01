@@ -24,12 +24,38 @@ import Constants from 'expo-constants';
  * │  Get a key: https://huggingface.co/settings/tokens (read role) │
  * └────────────────────────────────────────────────────────────────┘
  */
+/**
+ * Which pose-inference backend the app should use.
+ *
+ *   - 'auto'   — prefer YOLO (if bundled), fall back to Vision (iOS)
+ *                then TFJS, then the mock provider.
+ *   - 'yolo'   — force the Ultralytics YOLO-Pose path; fall through
+ *                to mock if weights aren't bundled. Used during
+ *                dogfood / eval runs to isolate the new model.
+ *   - 'vision' — legacy Apple Vision only; Android falls back to mock.
+ *                Kept for one release as a safety fallback.
+ */
+export type PoseBackend = 'auto' | 'yolo' | 'vision';
+
+const POSE_BACKENDS: ReadonlyArray<PoseBackend> = ['auto', 'yolo', 'vision'];
+
+function coercePoseBackend(value: unknown): PoseBackend {
+  return typeof value === 'string' && (POSE_BACKENDS as ReadonlyArray<string>).includes(value)
+    ? (value as PoseBackend)
+    : 'auto';
+}
+
 export interface AppEnv {
   readonly buildProfile: string;
   /** Hugging Face Inference API token (read-scope). Undefined disables wall detection. */
   readonly hfApiKey: string | undefined;
   /** Image-to-text model ID. Override via EXPO_PUBLIC_HF_CAPTION_MODEL. */
   readonly hfCaptionModel: string;
+  /**
+   * Pose-inference backend selection. Override via
+   * `EXPO_PUBLIC_ANALYSIS_POSE_BACKEND=yolo|vision|auto`. Default 'auto'.
+   */
+  readonly analysisPoseBackend: PoseBackend;
 }
 
 function readExtra(key: string): string | undefined {
@@ -47,5 +73,9 @@ export function readAppEnv(): AppEnv {
       process.env.EXPO_PUBLIC_HF_CAPTION_MODEL ??
       readExtra('hfCaptionModel') ??
       'Salesforce/blip-image-captioning-large',
+    analysisPoseBackend: coercePoseBackend(
+      process.env.EXPO_PUBLIC_ANALYSIS_POSE_BACKEND ??
+        readExtra('analysisPoseBackend'),
+    ),
   };
 }

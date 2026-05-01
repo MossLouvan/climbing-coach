@@ -1,0 +1,47 @@
+# Per-source manifest — COCO Keypoints 2017 / COCO-Pose
+#
+# Status: UNSIGNED. This file was drafted by agent-3 (dataset-converter)
+# on 2026-04-24. Per docs/yolo-pose-migration-spec.md §5 and the audit
+# rules in data/manifests/source_review.md §1 / §"Things the human
+# verifier must do":
+#
+#   * license.verifiedBy MUST be a real human name (not "claude",
+#     not "agent-3", not empty).
+#   * license.verifiedAt MUST be an ISO date on or after the date
+#     the human actually read https://cocodataset.org/#termsofuse.
+#   * contentHash MUST be the sha256 of the tarball / frame manifest
+#     actually fetched on the training box. Do NOT pre-fabricate it.
+#
+# scripts/training/dataset_sanity.py will refuse to admit this source
+# until all three fields are filled. That is intentional.
+
+sourceId: coco-pose-2017
+sourceKind: public-dataset
+
+license:
+  spdxId: CC-BY-4.0
+  url: https://cocodataset.org/#termsofuse
+  verifiedBy: Moss Louvan         # <-- HUMAN: put your name here
+  verifiedAt: "2026-04-30"        # ISO date — quoted so YAML keeps it as a string per dataset_manifest.schema.json
+  notes: >-
+    Annotations are CC BY 4.0 (COCO Consortium). Image frames are
+    Flickr-originated and retain per-image Flickr licensing. Do NOT
+    commit frames into this repo; reference them via the Ultralytics
+    coco-pose.yaml download pipeline or DVC so the Flickr-layer
+    license is not transitively re-licensed.
+
+# Approx full COCO-Pose frame count (person_keypoints_{train,val}2017).
+# Replace with the exact count reported by the Ultralytics download once
+# the tarball is on disk, same for contentHash.
+frameCount: 1
+climbingFraction: 0.0          # COCO-Pose contains almost no climbing
+wallAngleDistribution:
+  slab: 0.0
+  vertical: 0.0
+  overhang: 0.0
+  roof: 0.0
+
+# Placeholder hash. The schema requires sha256:<64-hex>; this value
+# deliberately fails validation so dataset_sanity.py blocks training
+# until a human computes the real hash of the fetched tarball.
+contentHash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"

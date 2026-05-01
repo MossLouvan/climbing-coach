@@ -1,0 +1,44 @@
+# Per-source manifest — Roboflow VAF Bouldering Poses
+#
+# Status: UNSIGNED. Drafted by agent-3 (dataset-converter) on
+# 2026-04-24. Per data/manifests/source_review.md §2:
+#
+#   * Screenshot the Roboflow project page license tag into
+#     data/manifests/attribution/ BEFORE signing; the tag can change
+#     silently.
+#   * Verify the keypoint order maps cleanly to COCO-17. If the
+#     Roboflow export uses a different joint order, capture the
+#     mapping in `notes` below and wire it through
+#     scripts/training/convert_vaf_to_coco17.py.
+#   * license.verifiedBy MUST be a real human name.
+#   * contentHash MUST be computed from the exported zip.
+
+sourceId: roboflow-vaf-bouldering-poses
+sourceKind: public-dataset
+
+license:
+  spdxId: CC-BY-4.0
+  url: https://universe.roboflow.com/vaf/bouldering-poses
+  verifiedBy: null          # <-- HUMAN: put your name here
+  verifiedAt: null          # <-- HUMAN: ISO date
+  notes: >-
+    Roboflow Universe page states CC BY 4.0 per scout report on
+    2026-04-24. The project ships ~41 images under a single class
+    "Climber". Too small to train on; used here as a climbing-slice
+    smoke / eval set under images/test and labels/test. KP order is
+    "roboflow-native" per data/manifests/public_baseline_sources.yaml
+    — the human verifier MUST confirm the mapping to COCO-17 before
+    running scripts/training/convert_vaf_to_coco17.py.
+
+frameCount: 41
+climbingFraction: 1.0           # single class "Climber"
+wallAngleDistribution:
+  # TODO (human): fill after visual inspection. Leaving zeros so the
+  # document is schema-valid; the field is nullable in the schema but
+  # we fill it in so train.py can log the imbalance.
+  slab: 0.0
+  vertical: 0.0
+  overhang: 0.0
+  roof: 0.0
+
+contentHash: "sha256:0000000000000000000000000000000000000000000000000000000000000000"

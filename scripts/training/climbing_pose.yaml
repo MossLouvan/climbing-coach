@@ -1,0 +1,28 @@
+# Ultralytics YOLO-Pose dataset config for climbing-fine-tune v1.
+# Referenced by `train.py` and the Ultralytics CLI.
+#
+# Keypoint topology MUST stay 17-COCO — the app's domain model
+# (src/domain/models/pose.ts::JOINT_NAMES) depends on it.
+
+path: ../../data                 # dataset root relative to this file
+train: splits/train.txt
+val:   splits/val.txt
+test:  splits/test.txt
+
+# 17 COCO keypoints, same order as JOINT_NAMES.
+# Each keypoint has (x, y, visibility).
+kpt_shape: [17, 3]
+
+# Left/right flip index for horizontal-flip augmentation.
+# Must match MockPoseProvider / VisionPoseProvider layout.
+# Indices:
+#   0 nose, 1 L-eye, 2 R-eye, 3 L-ear, 4 R-ear,
+#   5 L-shoulder, 6 R-shoulder, 7 L-elbow, 8 R-elbow,
+#   9 L-wrist, 10 R-wrist, 11 L-hip, 12 R-hip,
+#   13 L-knee, 14 R-knee, 15 L-ankle, 16 R-ankle
+flip_idx: [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15]
+
+# Single class — the climber. We ignore other humans in the frame
+# (belayer, spotter, onlookers) at label time.
+names:
+  0: climber
